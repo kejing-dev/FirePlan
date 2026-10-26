@@ -8,6 +8,8 @@
 
 PICO OS 6 · PICO Spatial SDK 6.1.9 · Kotlin / SpatialUI · package `io.embodit.fireplan` · v0.1.0 (pre-release / 预发布)
 
+> **模拟器 QA 通过，真机未验证（Simulator-QA passed; not yet verified on a real headset）。**
+
 ![封面：灶台旁起火，最近的烟感闪黄，计时小卡问「扑还是走？」](docs/cover-S12-fire.jpg)
 
 > 截图和演示视频来自原生模拟器（PICO Emulator 6.1），由调试广播驱动跳转到各设计状态；**非真实手势录像**。
