@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 中文。文案来自设计包 copy；提示条中文 ≤ 10 个字。 -->
+<resources>
+    <string name="app_name">火情预案</string>
+    <string name="home_title">火情预案</string>
+
+    <string name="home_setup">布置我家</string>
+    <string name="home_drill">开始演练</string>
+    <string name="home_result">看复盘</string>
+    <string name="home_not_set_up">还没布置</string>
+    <string name="home_placed">已放 %d 个点</string>
+    <string name="home_need_fire_exit">先放起火点和出口</string>
+    <string name="home_starting">准备中…</string>
+
+    <string name="action_more">更多</string>
+    <string name="action_back">返回</string>
+    <string name="action_close">关闭</string>
+    <string name="action_delete">删除</string>
+    <string name="action_pause">暂停</string>
+    <string name="action_stop">停止</string>
+    <string name="action_exit">退出</string>
+
+    <string name="action_resume">继续</string>
+    <string name="action_restart">重新开始</string>
+    <string name="action_end_drill">结束演练</string>
+    <string name="action_redo">重录</string>
+    <string name="action_finish">完成</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_clear">清除</string>
+    <string name="action_retry">重试</string>
+    <string name="action_got_it">知道了</string>
+    <string name="action_look_again">再找找</string>
+    <string name="action_set_up_again">重新布置</string>
+    <string name="action_pull_pin">拔销</string>
+    <string name="action_again">再演一次</string>
+
+    <string name="marker_fire">起火点</string>
+    <string name="marker_ext">灭火器</string>
+    <string name="marker_exit">出口</string>
+    <string name="marker_det">烟感</string>
+    <string name="marker_full">满</string>
+    <string name="marker_from_fire">离起火点 %s m</string>
+    <string name="marker_max">最多 %d 个</string>
+
+    <string name="tray_title">布置我家</string>
+    <string name="tray_route">走一遍逃生路线</string>
+    <string name="route_pick">走到哪个出口？</string>
+    <string name="route_walk_to_fire">走到灶台旁 · 还有 %s m</string>
+    <string name="route_go">好，按平时速度走到出口</string>
+    <string name="route_walked">已走 %s m</string>
+    <string name="route_done">路线录好了 · %s m</string>
+    <string name="route_short">太短了 · 重录</string>
+
+    <string name="det_ceiling">在天花板上</string>
+    <string name="det_wall">离墙 %s m</string>
+    <string name="det_wall_unknown">离墙 —</string>
+    <string name="det_stove">离灶台 %s m</string>
+    <string name="det_stove_unknown">离灶台 —</string>
+    <string name="det_prefer_ceiling">最好装在天花板</string>
+    <string name="det_from_top">离顶 %s m</string>
+    <string name="det_basis">依据 GB 50116 / NFPA 72</string>
+
+    <string name="drill_fire_start">起火了 · 扑还是走？</string>
+    <string name="drill_get_ext">去拿灭火器</string>
+    <string name="drill_back_pull">回到火前 2–3 米 · 拔销</string>
+    <string name="drill_aim">瞄火根 · 按住喷</string>
+    <string name="drill_aim_low">瞄火根，不是火苗</string>
+    <string name="drill_sweep">左右扫 %1$d/%2$d</string>
+    <string name="drill_too_close">太近了 · 退一步</string>
+    <string name="drill_too_far">够不着 · 再近点</string>
+    <string name="drill_out">火灭了 · 仍然出门 · 打 119</string>
+    <string name="drill_empty">灭火器空了 · 出门</string>
+    <string name="drill_too_big">火太大了 · 马上出门</string>
+    <string name="drill_dont_fight">别扑了 · 出门</string>
+    <string name="drill_countdown_safety">快走别跑 · 到门口就停，不用开门</string>
+    <string name="drill_leave_door">先离开门口</string>
+    <string name="pause_title">已暂停</string>
+
+    <string name="result_title">复盘</string>
+    <string name="result_under">两分钟内出门</string>
+    <string name="result_over">超过两分钟</string>
+    <string name="seg_get">拿灭火器</string>
+    <string name="seg_fight">扑火</string>
+    <string name="seg_out">出门</string>
+    <string name="scenario_small">小火</string>
+    <string name="scenario_big">大火</string>
+    <string name="result_compare">上次 %1$s → 这次 %2$s</string>
+    <string name="result_oil_tip">油锅起火：关火盖锅盖，别泼水</string>
+    <string name="finding_f1">火比垃圾桶大就别扑，直接走</string>
+    <string name="finding_f2">两分钟内要出门，路上别停</string>
+    <string name="finding_f3">在厨房门口再放一个灭火器</string>
+    <string name="finding_f4">想好第二条出路</string>
+    <string name="finding_f5">还没标烟感：每层、每间卧室内外都装</string>
+    <string name="finding_f6">有 %d 个烟感位置要挪</string>
+    <string name="finding_f7">离火 2–3 米再喷</string>
+    <string name="finding_ok">这次做得很好 · 半年后再演一次</string>
+
+    <string name="snack_scanning">慢慢看看地面</string>
+    <string name="snack_restoring">正在找回 · 看看四周</string>
+    <string name="snack_restored">已找回 %d 个点</string>
+    <string name="snack_partial">找回 %1$d/%2$d · 走近看看</string>
+    <string name="snack_bad_surface">这里放不了</string>
+    <string name="snack_unsaved">没能保存</string>
+    <string name="snack_lost">定位丢失 · 环顾四周</string>
+    <string name="snack_max">最多 %d 个</string>
+
+    <string name="dialog_clear">清除全部标点、路线和记录？</string>
+    <string name="dialog_not_here">上次的标点不在这里</string>
+    <string name="dialog_unavailable">这台设备用不了房间识别</string>
+
+    <string name="coach_hint">指向地面，捏一下</string>
+
+    <string name="menu_language">语言</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_en">英文</string>
+    <string name="menu_hints">新手提示</string>
+    <string name="on">开</string>
+    <string name="off">关</string>
+    <string name="menu_scenario">场景</string>
+    <string name="scen_random">随机</string>
+    <string name="scen_small">小火</string>
+    <string name="scen_big">大火</string>
+    <string name="menu_clear">全部清除</string>
+    <string name="menu_exit">退出</string>
+</resources>

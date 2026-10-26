@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app icon background: fire-brick red, the only red-backed icon in the factory (design appIcon) -->
+    <color name="ic_launcher_background">#C63D2F</color>
+</resources>

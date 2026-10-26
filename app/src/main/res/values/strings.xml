@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English (default). Copy from the design package `copy`; the Chinese mirror is in values-zh. -->
+<resources>
+    <string name="app_name">Fire Plan</string>
+    <string name="home_title">Fire Plan</string>
+
+    <!-- home -->
+    <string name="home_setup">Set up my home</string>
+    <string name="home_drill">Start drill</string>
+    <string name="home_result">Last result</string>
+    <string name="home_not_set_up">Not set up</string>
+    <string name="home_placed">%d points</string>
+    <string name="home_need_fire_exit">Place the fire spot and an exit first</string>
+    <string name="home_starting">Getting ready…</string>
+
+    <!-- icon-only controls (descriptions) -->
+    <string name="action_more">More</string>
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_exit">Exit</string>
+
+    <!-- worded buttons -->
+    <string name="action_resume">Resume</string>
+    <string name="action_restart">Restart</string>
+    <string name="action_end_drill">End drill</string>
+    <string name="action_redo">Redo</string>
+    <string name="action_finish">Done</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_got_it">Got it</string>
+    <string name="action_look_again">Look again</string>
+    <string name="action_set_up_again">Set up again</string>
+    <string name="action_pull_pin">Pull pin</string>
+    <string name="action_again">Run again</string>
+
+    <!-- markers -->
+    <string name="marker_fire">Fire spot</string>
+    <string name="marker_ext">Extinguisher</string>
+    <string name="marker_exit">Exit</string>
+    <string name="marker_det">Smoke alarm</string>
+    <string name="marker_full">Full</string>
+    <string name="marker_from_fire">%s m from fire</string>
+    <string name="marker_max">Max %d</string>
+    <string name="exit_1" translatable="false">①</string>
+    <string name="exit_2" translatable="false">②</string>
+
+    <!-- setup tray and route -->
+    <string name="tray_title">Set up my home</string>
+    <string name="tray_route">Walk the escape route</string>
+    <string name="route_pick">Which exit?</string>
+    <string name="route_walk_to_fire">Walk to the fire spot · %s m</string>
+    <string name="route_go">Now walk to the exit at a normal pace</string>
+    <string name="route_walked">%s m walked</string>
+    <string name="route_done">Route saved · %s m</string>
+    <string name="route_short">Too short · redo</string>
+
+    <!-- detector check card -->
+    <string name="det_ceiling">On the ceiling</string>
+    <string name="det_wall">%s m from wall</string>
+    <string name="det_wall_unknown">From wall —</string>
+    <string name="det_stove">%s m from stove</string>
+    <string name="det_stove_unknown">From stove —</string>
+    <string name="det_prefer_ceiling">Ceiling is better</string>
+    <string name="det_from_top">%s m below ceiling</string>
+    <string name="det_basis">Per GB 50116 / NFPA 72</string>
+    <string name="det_rule_wall" translatable="false">≥ 0.5</string>
+    <string name="det_rule_top" translatable="false">≤ 0.3</string>
+    <string name="det_rule_stove" translatable="false">≥ 3</string>
+
+    <!-- drill card lines -->
+    <string name="drill_fire_start">Fire! Fight it or get out?</string>
+    <string name="drill_get_ext">Get the extinguisher</string>
+    <string name="drill_back_pull">Stand 2–3 m back · pull the pin</string>
+    <string name="drill_aim">Aim at the base · squeeze</string>
+    <string name="drill_aim_low">Aim at the base, not the flames</string>
+    <string name="drill_sweep">Sweep %1$d/%2$d</string>
+    <string name="drill_too_close">Too close · step back</string>
+    <string name="drill_too_far">Too far · move closer</string>
+    <string name="drill_out">Fire\'s out · still get out · call for help</string>
+    <string name="drill_empty">Extinguisher empty · get out</string>
+    <string name="drill_too_big">Too big · get out now</string>
+    <string name="drill_dont_fight">Don\'t fight it · get out</string>
+    <string name="drill_countdown_safety">Walk, don\'t run · stop at the door</string>
+    <string name="drill_leave_door">Step away from the exit</string>
+    <string name="pause_title">Paused</string>
+
+    <!-- result -->
+    <string name="result_title">Result</string>
+    <string name="result_under">Out in under 2 min</string>
+    <string name="result_over">Over 2 min</string>
+    <string name="seg_get">Get extinguisher</string>
+    <string name="seg_fight">Fight</string>
+    <string name="seg_out">Get out</string>
+    <string name="scenario_small">Small fire</string>
+    <string name="scenario_big">Big fire</string>
+    <string name="result_compare">Last %1$s → now %2$s</string>
+    <string name="result_oil_tip">Pan fire: turn off the heat, cover it, no water</string>
+    <string name="finding_f1">Bigger than a wastebasket? Just get out</string>
+    <string name="finding_f2">Aim to be out within 2 minutes</string>
+    <string name="finding_f3">Keep another extinguisher by the kitchen door</string>
+    <string name="finding_f4">Plan a second way out</string>
+    <string name="finding_f5">No smoke alarms yet: every floor, inside and outside each bedroom</string>
+    <string name="finding_f6">%d smoke alarms should move</string>
+    <string name="finding_f7">Spray from 2–3 m away</string>
+    <string name="finding_ok">Well done · drill again in 6 months</string>
+
+    <!-- snackbars (<= 5 words) -->
+    <string name="snack_scanning">Look at the floor</string>
+    <string name="snack_restoring">Restoring · look around</string>
+    <string name="snack_restored">%d points restored</string>
+    <string name="snack_partial">%1$d/%2$d found · walk closer</string>
+    <string name="snack_bad_surface">Can\'t place here</string>
+    <string name="snack_unsaved">Not saved</string>
+    <string name="snack_lost">Tracking lost · look around</string>
+    <string name="snack_max">Max %d</string>
+
+    <!-- dialogs -->
+    <string name="dialog_clear">Clear all points, routes and results?</string>
+    <string name="dialog_not_here">Your last setup isn\'t here</string>
+    <string name="dialog_unavailable">Room sensing isn\'t available</string>
+
+    <!-- coachmark -->
+    <string name="coach_hint">Point at the floor, pinch</string>
+
+    <!-- more menu -->
+    <string name="menu_language">Language</string>
+    <string name="lang_system">System</string>
+    <string name="lang_zh" translatable="false">中文</string>
+    <string name="lang_en">English</string>
+    <string name="lang_en_short" translatable="false">EN</string>
+    <string name="menu_hints">Hints</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="menu_scenario">Scenario</string>
+    <string name="scen_random">Random</string>
+    <string name="scen_small">Small fire</string>
+    <string name="scen_big">Big fire</string>
+    <string name="menu_clear">Clear all</string>
+    <string name="menu_exit">Exit</string>
+</resources>
