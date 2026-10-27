@@ -1270,7 +1270,8 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 .minByOrNull { it.centroid.distanceTo(h) }
         // on the floor: 1.8 m ahead and 0.9 m right, in the open (the emulator's bed platform hides anything behind it)
         val fire = table?.centroid ?: pick(listOf(onFloor(h + fwd * 1.8f + right * 0.9f), onFloor(h + fwd * 2f), onFloor(h + fwd * 1.5f)))
-        val ext = pick(listOf(onFloor(h + fwd * 3.2f + right * 2.3f), onFloor(h + fwd * 2.5f + right * 1.2f), onFloor(h + fwd * 1.5f + right * 1f)))
+        // every candidate at 32 - 40 degrees right, clear of the fire spot's 27 degrees (its plate would sit behind the fire's)
+        val ext = pick(listOf(onFloor(h + fwd * 3.2f + right * 2.0f), onFloor(h + fwd * 2.6f + right * 1.9f), onFloor(h + fwd * 1.6f + right * 1.3f)))
         val doors = planes.filter { it.kind == SurfaceKind.DOOR }
         fun doorFoot(d: PlaneSurface): Vec3 {
             val n = d.normal
