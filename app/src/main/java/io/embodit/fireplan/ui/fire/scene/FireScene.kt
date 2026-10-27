@@ -19,9 +19,7 @@ import com.pico.spatial.ui.foundation.gesture.SpatialTapValue
 import com.pico.spatial.ui.geometry.Offset3D
 import io.embodit.fireplan.domain.model.MarkerKind
 import io.embodit.fireplan.domain.model.PointerRay
-import io.embodit.fireplan.domain.model.SurfaceKind
 import io.embodit.fireplan.domain.model.Vec3
-import io.embodit.fireplan.domain.usecase.PlaceMarkerUseCase
 import io.embodit.fireplan.platform.FireGraph
 import io.embodit.fireplan.platform.FireLog
 import io.embodit.fireplan.platform.audio.AlarmPlayer
@@ -33,6 +31,7 @@ import io.embodit.fireplan.ui.fire.DrillPhase
 import io.embodit.fireplan.ui.fire.FireEvent
 import io.embodit.fireplan.ui.fire.FireUiState
 import io.embodit.fireplan.ui.fire.Mode
+import io.embodit.fireplan.ui.fire.RoutePhase
 import io.embodit.fireplan.ui.fire.debug.FireProbe
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -90,6 +89,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
     private var flame: FlameView? = null
     private var prop: ExtinguisherView? = null
     private var routes: RouteView? = null
+    private var roomView: RoomView? = null
     private var alarmSource: Entity? = null
     private var attached = false
     private var attachedAtMs = 0L
@@ -106,8 +106,9 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
     private var lastHeadSentMs = 0L
     private var lastPlaneCount = -1
     private var lastPlanesEmitMs = 0L
-    private var lastFloor = false
-    private var lastCeiling = false
+    private var lastFloorY: Float? = null
+    private var lastCeilingY: Float? = null
+    private var previewing = false
     private var lastLost = false
     private var panelPressed = false
     private var lastPanelPressMs = NEVER
@@ -204,6 +205,8 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         yield()
         routes = RouteView(root, m, sh).also { it.prepare() }
         yield()
+        roomView = RoomView(root, m, sh).also { it.prepare() }
+        yield()
         flame = FlameView(root, m, sh).also { it.prepare() }
         yield()
         prop = ExtinguisherView(root, m, sh).also { it.prepare() }
@@ -245,6 +248,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         runCatching { rig?.release() }
         markers?.clear()
         routes?.clear()
+        roomView?.clear()
         flame?.destroy()
         prop?.destroy()
         colliders?.clear()
@@ -263,6 +267,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         flame = null
         prop = null
         routes = null
+        roomView = null
         alarmSource = null
         hasHead = false
         lastPlaneCount = -1
@@ -295,6 +300,8 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
             state.mode == Mode.PLACING || state.mode == Mode.ROUTE_PICK || state.mode == Mode.ROUTE_RECORDING || state.mode == Mode.ROUTE_DONE ||
                 (state.mode == Mode.DRILL && (state.drill?.phase == DrillPhase.OUT || state.drill?.phase == DrillPhase.EVACUATE))
         routes?.setVisible(routesVisible)
+        roomView?.sync(state.room, state.roomSource)
+        roomView?.setVisible(state.mode == Mode.HOME || state.mode == Mode.PLACING || state.mode == Mode.ROUTE_PICK || state.mode == Mode.ROUTE_RECORDING || state.mode == Mode.ROUTE_DONE || state.mode == Mode.SCANNING)
         syncDrill(state, now)
         syncPanels(state)
     }
@@ -440,6 +447,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         prop?.onFrame(now)
         flame?.onFrame(now)
         drillFrame(state, now)
+        previewFrame(state, now)
         placeStrips(state, rig)
         sampleController(state, now)
         if (hasHead && now - lastHeadSentMs >= HEAD_SAMPLE_MS) {
@@ -568,21 +576,40 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         ctrlWasPressed = pressed
     }
 
+    /** v0.1.1: only the detected floor and ceiling heights go to the ViewModel (the room box takes them). */
     private fun pollPlanes(now: Long) {
         val count = planeTracker.count
-        val planes = planeTracker.all
-        val hasFloor = planes.any { it.kind == SurfaceKind.FLOOR }
-        val hasCeiling = PlaceMarkerUseCase.hasCeiling(planes)
-        if (count == lastPlaneCount && hasFloor == lastFloor && hasCeiling == lastCeiling) return
+        val floorY = planeTracker.realFloorY
+        val ceilingY = planeTracker.realCeilingY
+        if (count == lastPlaneCount && near(floorY, lastFloorY) && near(ceilingY, lastCeilingY)) return
         if (now - lastPlanesEmitMs < PLANES_EMIT_MS) return
         lastPlanesEmitMs = now
         lastPlaneCount = count
-        lastFloor = hasFloor
-        lastCeiling = hasCeiling
-        val floorY = PlaceMarkerUseCase.floorHeight(planes) ?: 0f
-        val outline = planes.filter { it.kind == SurfaceKind.FLOOR }.maxByOrNull { it.vertices.size }?.vertices ?: emptyList()
-        FireLog.i("PLANES n=$count floor=$hasFloor ceiling=$hasCeiling floorY=${FireLog.f(floorY)}")
-        sink(FireEvent.PlanesChanged(count, hasFloor, floorY, hasCeiling, outline))
+        lastFloorY = floorY
+        lastCeilingY = ceilingY
+        FireLog.i("PLANES n=$count floorY=${floorY?.let { FireLog.f(it) } ?: "-"} ceilingY=${ceilingY?.let { FireLog.f(it) } ?: "-"}")
+        sink(FireEvent.PlanesChanged(count, floorY, ceilingY))
+    }
+
+    private fun near(a: Float?, b: Float?): Boolean = if (a == null || b == null) a == b else kotlin.math.abs(a - b) < 0.01f
+
+    /** v0.1.1 (taste profile B17): after a route is drawn, a bright run travels along it from the fire spot to the exit, so it can be seen without walking. */
+    private fun previewFrame(state: FireUiState, now: Long) {
+        val r = routes ?: return
+        val rec = state.routeRec
+        val on = state.mode == Mode.ROUTE_DONE && rec != null && rec.phase == RoutePhase.DONE
+        if (!on) {
+            if (previewing) {
+                r.unlightAll()
+                previewing = false
+            }
+            return
+        }
+        val n = state.routes[rec!!.exitId]?.size ?: return
+        previewing = true
+        val span = n + RouteView.AHEAD
+        val from = ((now / PREVIEW_STEP_MS) % span).toInt() - RouteView.AHEAD
+        r.light(rec.exitId, from, now)
     }
 
     private fun pollTracking(now: Long) {
@@ -640,7 +667,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
             }
             colliders?.isBackstop(target) == true -> {
                 FireLog.i("TAP backstop kind=$kind stage=${FireLog.pos(stage)}")
-                sink(FireEvent.NothingTapped)
+                sink(if (stage != null) FireEvent.OutsideTapped(stage) else FireEvent.NothingTapped)
             }
             else -> FireLog.i("TAP other target=$name kind=$kind stage=${FireLog.pos(stage)}")
         }
@@ -733,6 +760,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         private const val NEVER = Long.MIN_VALUE
         private const val REBIND_DELAY_MS = 150L
         private const val PLANES_EMIT_MS = 500L
+        private const val PREVIEW_STEP_MS = 120L
         private const val HEAD_SAMPLE_MS = 100L
         private const val PANEL_HOLD_MS = 600L
         private const val COACH_GAP_M = 0.03f

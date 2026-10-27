@@ -50,7 +50,7 @@
 
     <!-- setup tray and route -->
     <string name="tray_title">Set up my home</string>
-    <string name="tray_route">Walk the escape route</string>
+    <string name="tray_route">Escape route</string>
     <string name="route_pick">Which exit?</string>
     <string name="route_walk_to_fire">Walk to the fire spot · %s m</string>
     <string name="route_go">Now walk to the exit at a normal pace</string>
@@ -141,4 +141,22 @@
     <string name="scen_big">Big fire</string>
     <string name="menu_clear">Clear all</string>
     <string name="menu_exit">Exit</string>
+    <!-- v0.1.1: the room box (taste profile D7) and the route drawn without walking (B17) -->
+    <string name="action_room">Room</string>
+    <string name="action_adjust">Adjust</string>
+    <string name="action_recenter">Around me</string>
+    <string name="room_title">Room · %s</string>
+    <string name="room_virtual">Virtual room · drag it to fit</string>
+    <string name="room_floor">Floor scanned · ceiling virtual</string>
+    <string name="room_floor_ceiling">Floor and ceiling scanned</string>
+    <string name="room_w">Width</string>
+    <string name="room_l">Length</string>
+    <string name="room_h">Height</string>
+    <string name="room_turn">Turn</string>
+    <string name="room_side">Side</string>
+    <string name="room_depth">Depth</string>
+    <string name="snack_virtual_room">No floor found · using a virtual room</string>
+    <string name="snack_room_scanned">Floor found · room set on it</string>
+    <string name="route_auto">Draw it from here</string>
+    <string name="route_or_draw">Or draw a straight route without walking</string>
 </resources>

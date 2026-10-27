@@ -78,6 +78,10 @@ data class Settings(
     val hints: Boolean = true,
     val scenario: ScenarioPref = ScenarioPref.RANDOM,
     val coachSeen: Boolean = false,
+    /** v0.1.1: the room box size, metres (taste profile D7). */
+    val roomW: Float = RoomBox.DEFAULT_W,
+    val roomL: Float = RoomBox.DEFAULT_L,
+    val roomH: Float = RoomBox.DEFAULT_H,
 )
 
 /** One finished drill (the last five are kept). */

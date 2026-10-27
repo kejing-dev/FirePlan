@@ -15,6 +15,45 @@ Built by the factory's build station on 2026-10-25 (v0.1.0, debug) and run on th
 (emulator-5562, AVD Pico_Emulator_6_1_c): every designed state captured through the QA hooks, no crash.
 Not yet run on a headset.
 
+## v0.1.1 (2026-10-26, pc1): the room box, placement anywhere, route without walking
+
+The user tried v0.1.0 in an office: no DOOR / CEILING planes were reported, so the smoke alarm and the
+exit could not be placed at all. v0.1.1 follows factory taste profile D7 (never stuck scanning: a
+virtual room) and B17 (as little walking as possible):
+
+- **Room box** (`domain/model/RoomBox`, `ui/fire/scene/RoomView`): a box (default 5 x 6 x 2.7 m, the
+  viewer 1.5 m from its back wall, facing its front wall) whose six planes (`room_floor`, `room_ceiling`,
+  four `room_*` walls) are what every tap hits. Plane detection is only asked for two numbers:
+  the floor height and the ceiling height (`PlaneTracker.realFloorY / realCeilingY`). Walls, doors and
+  furniture are not needed; detected TABLE / CABINET tops are still offered (fire spot on the stove
+  counter). Detected walls / doors / other planes are ignored.
+- **Scan timeout**: the room is created as soon as a floor is detected, else after 5 s on the Stage
+  ground (y = 0) as a *virtual* room (snackbar "No floor found · using a virtual room" + [Adjust]). A
+  floor / ceiling detected later moves the room's floor / ceiling (a height the user set wins).
+- **Room card** (main panel, state name `ROOM`; the cube key on home and on the tray): width / length
+  +-0.5 m, height +-0.1 m, turn +-5 degrees, slide left / right and push away / pull closer 0.25 m
+  (relative to where the user looks), "Around me" re-centres it. Size is kept in the settings; the
+  position is re-made around the user at every launch (Stage coordinates do not survive a relaunch).
+  Rendered as 12 white edges at 45 %, a 7 % ceiling fill, and a 7 % floor fill only while virtual.
+- **Placement never refuses** (`PlaceMarkerUseCase`): whatever room surface is pinched, the marker goes
+  where its kind belongs. Detector: ceiling above the point (a wall pinched within 0.6 m of the ceiling =
+  wall-mounted; lower on a wall = ceiling 0.6 m in from it). Exit / extinguisher / fire spot: floor below
+  the point, or 0.3 m in front of the wall that was pinched (fire spot on a detected table top stays on
+  it). A pinch outside the box (backstop) is projected along head -> tap point onto the room's floor /
+  ceiling (up to 12 m), so a real room bigger than the box still works.
+- **Route without walking**: the route card's "Draw it from here" makes a straight route fire spot ->
+  exit (0.4 m dots); after any route is saved a bright run travels along it from the fire spot to the
+  exit (route preview, `FireScene.previewFrame`). Walking the route stays available. The drill itself
+  still involves walking (fetch the extinguisher / reach the exit).
+- QA hooks added: `noscan on|off`, `scan_timeout`, `room [w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done]`,
+  `state ROOM`, `tap x,y,z` (a pinch on the room surface at that Stage point), and `ui` controls
+  `room`, `tray_room`, `room_*`, `route_auto`, `snackbar_room`. `dump` has a `room` object.
+- Headset install note: v0.1.0 on the headset was signed on another machine (debug keystore differs),
+  so `install -r` fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. The station backed up
+  `shared_prefs/fire_plan.xml` with `run-as`, uninstalled, installed v0.1.1 and pushed the file back
+  (`MSYS_NO_PATHCONV=1` in Git Bash for `/data/local/tmp`). The world anchors survived the reinstall.
+  First headset launch (office): floor 0.03 m and ceiling 4.11 m detected, room 5 x 6 x 4.1 m.
+
 ## Structure
 
 ```
@@ -73,9 +112,8 @@ through Compose.
 
 ## Interaction
 
-- Place: pick a tile on the tray, pinch on a surface. Fire spot: TABLE / CABINET top or FLOOR; extinguisher:
-  FLOOR; exit: FLOOR, or a DOOR plane (lands 0.3 m in front of the door); detector: CEILING, or a WALL when
-  no ceiling plane exists. Anything else: "can't place here". A marker is its world anchor + offset;
+- Place: pick a tile on the tray, pinch on a surface. v0.1.1: every room surface takes every kind (see
+  "v0.1.1" above); v0.1.0 needed FLOOR / DOOR / CEILING planes and said "can't place here" otherwise. A marker is its world anchor + offset;
   "not saved · retry" when the anchor fails. Tap a marker -> strip (delete / close); a detector also shows
   the check card. Tap empty space = deselect; with the menu open the first pinch only closes the menu.
 - Route: tray -> "walk the escape route" (two exits: pick one first). Walk to the fire spot (0.8 m),

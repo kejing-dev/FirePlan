@@ -130,6 +130,8 @@ private fun snackText(s: SnackUi): String =
         SnackKind.UNSAVED -> rs(R.string.snack_unsaved)
         SnackKind.LOST -> rs(R.string.snack_lost)
         SnackKind.MAX -> rs(R.string.snack_max, s.a)
+        SnackKind.VIRTUAL_ROOM -> rs(R.string.snack_virtual_room)
+        SnackKind.ROOM_SCANNED -> rs(R.string.snack_room_scanned)
     }
 
 /**
@@ -179,6 +181,7 @@ internal fun SnackPanel(snack: SnackUi?, onEvent: (FireEvent) -> Unit, applied: 
                                 SnackKind.BAD_SURFACE -> R.drawable.ic_unavailable
                                 SnackKind.UNSAVED, SnackKind.MAX -> R.drawable.ic_warning
                                 SnackKind.LOST -> R.drawable.ic_unavailable
+                                SnackKind.VIRTUAL_ROOM, SnackKind.ROOM_SCANNED -> R.drawable.ic_room
                                 else -> R.drawable.ic_check
                             }
                         ),
@@ -197,6 +200,9 @@ internal fun SnackPanel(snack: SnackUi?, onEvent: (FireEvent) -> Unit, applied: 
             )
             if (snack.kind == SnackKind.UNSAVED) {
                 WordButton("snackbar_action", rs(R.string.action_retry), { onEvent(FireEvent.SnackActionClicked(snack.id)) }, primary = true, minWidth = 96.dp, iconRes = R.drawable.ic_retry)
+            }
+            if (snack.kind == SnackKind.VIRTUAL_ROOM) {
+                WordButton("snackbar_room", rs(R.string.action_adjust), { onEvent(FireEvent.RoomClicked) }, primary = true, minWidth = 96.dp, iconRes = R.drawable.ic_room)
             }
         }
     }

@@ -81,13 +81,13 @@ internal fun fmt2(v: Float): String = String.format(Locale.US, "%.2f", v)
 
 /** A 56 x 48 icon key (more, back, close, delete, pause, stop). */
 @Composable
-internal fun Key(name: String, iconRes: Int, description: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun Key(name: String, iconRes: Int, description: String, enabled: Boolean = true, width: Dp = KeyWidth, onClick: () -> Unit) {
     val content = if (enabled) PicoTheme.colorScheme.labelPrimaryLight else PicoTheme.colorScheme.labelQuaternary
     IconButton(
         onClick = onClick,
         modifier = Modifier.probe(name, onClick),
         colors = IconButtonDefaults.iconButtonColors(containerColor = PicoTheme.colorScheme.fillPrimary, contentColor = PicoTheme.colorScheme.labelPrimaryLight),
-        size = IconButtonDefaults.iconButtonSize(width = KeyWidth, height = KeyHeight),
+        size = IconButtonDefaults.iconButtonSize(width = width, height = KeyHeight),
         enabled = enabled,
     ) {
         Icon(painter = painterResource(iconRes), contentDescription = description, modifier = Modifier.size(24.dp), tint = content)

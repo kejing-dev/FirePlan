@@ -14,6 +14,8 @@ import io.embodit.fireplan.domain.model.Marker
 import io.embodit.fireplan.domain.model.MarkerKind
 import io.embodit.fireplan.domain.model.PlaneSurface
 import io.embodit.fireplan.domain.model.Quat4
+import io.embodit.fireplan.domain.model.RoomBox
+import io.embodit.fireplan.domain.model.RoomSource
 import io.embodit.fireplan.domain.model.Route
 import io.embodit.fireplan.domain.model.Scenario
 import io.embodit.fireplan.domain.model.ScenarioPref
@@ -30,6 +32,8 @@ import io.embodit.fireplan.domain.usecase.PlaceMarkerUseCase
 import io.embodit.fireplan.platform.FireGraph
 import io.embodit.fireplan.platform.FireLog
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -83,9 +87,20 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
     private var mode = Mode.STARTING
     private var forcedMode: Mode? = null
     private var sceneReady = false
-    private var hasFloor = false
     private var floorY = 0f
     private var floorOutline: List<Vec3> = emptyList()
+
+    // ---- the room (v0.1.1, taste profile D7): plane detection gives at most the floor / ceiling height
+    private var room: RoomBox? = null
+    private var roomSource: RoomSource? = null
+    private var roomEdit = false
+    private var realFloorY: Float? = null
+    private var realCeilingY: Float? = null
+    /** The user changed the height: a ceiling detected later does not override it. */
+    private var heightTouched = false
+    private var scanJob: Job? = null
+    private val hasFloor: Boolean
+        get() = room != null
     private var placeKind: MarkerKind? = null
     private var selectedId: String? = null
     private var menuOpen = false
@@ -197,13 +212,13 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         when (event) {
             FireEvent.SceneReady -> {
                 sceneReady = true
+                startScanTimer()
                 settle()
             }
             is FireEvent.PlanesChanged -> {
-                hasFloor = event.hasFloor
-                floorY = event.floorY
-                floorOutline = event.floorOutline
-                routesDirty = true
+                realFloorY = event.realFloorY
+                realCeilingY = event.realCeilingY
+                adoptScan()
                 settle()
             }
             is FireEvent.TrackingChanged -> {
@@ -214,6 +229,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             is FireEvent.SurfaceTapped -> onSurfaceTapped(event.planeId, event.point)
             is FireEvent.MarkerTapped -> onMarkerTapped(event.id)
             FireEvent.NothingTapped -> onNothingTapped()
+            is FireEvent.OutsideTapped -> onOutsideTapped(event.point)
             FireEvent.PinRingTapped, FireEvent.PullPinClicked, FireEvent.DebugPass -> pullPin()
             is FireEvent.AimChanged -> onAim(event.target)
             is FireEvent.SprayStarted -> onSprayStarted(event.onRing)
@@ -238,6 +254,32 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 routeRec = null
                 mode = Mode.PLACING
             }
+            FireEvent.RouteAutoClicked -> routeRec?.let { autoRoute(it) }
+            FireEvent.RoomClicked ->
+                if (room != null && (mode == Mode.HOME || mode == Mode.PLACING)) {
+                    roomEdit = true
+                    menuOpen = false
+                    selectedId = null
+                    FireLog.i("ROOM edit ${room?.label}")
+                }
+            FireEvent.RoomDoneClicked -> {
+                roomEdit = false
+                save()
+            }
+            is FireEvent.RoomResized ->
+                room?.let { r ->
+                    val n = r.resized(event.dw, event.dl, event.dh)
+                    if (event.dh != 0f) heightTouched = true
+                    settings = settings.copy(roomW = n.width, roomL = n.length, roomH = n.height)
+                    applyRoom(n)
+                    FireLog.i("ROOM size ${n.label}")
+                }
+            is FireEvent.RoomMoved -> room?.let { r -> applyRoom(r.moved(headForward, event.right, event.ahead, event.turnDeg)) }
+            FireEvent.RoomRecentered ->
+                room?.let { r ->
+                    applyRoom(RoomBox.around(head ?: Vec3(0f, 1.6f, 0f), headForward, r.width, r.length, r.height, r.floorY))
+                    FireLog.i("ROOM recenter")
+                }
             FireEvent.DeleteMarkerClicked -> selectedId?.let { deleteMarker(it) }
             FireEvent.CloseStripClicked -> selectedId = null
             FireEvent.PauseClicked -> drill?.let { if (!it.paused) { it.paused = true; FireLog.i("DRILL pause") } }
@@ -315,12 +357,82 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 dialog = DialogKind.NOT_HERE
             }
             is FireEvent.DebugTracking -> FireGraph.head.forceLost = event.lost ?: false
+            is FireEvent.DebugNoScan -> {
+                planeTracker.ignoreDetected = event.on
+                realFloorY = planeTracker.realFloorY
+                realCeilingY = planeTracker.realCeilingY
+                FireLog.i("ROOM noscan=${event.on}")
+            }
+            FireEvent.DebugScanTimeout -> {
+                if (room == null) createRoom()
+                settle()
+            }
             is FireEvent.HeadSample, is FireEvent.SprayMoved -> Unit
         }
         publish()
     }
 
     // ---- start-up, scanning, restoring
+
+    /** Taste profile D7: never stuck scanning. Without a detected floor after 5 s the virtual room is used. */
+    private fun startScanTimer() {
+        if (room != null || scanJob != null) return
+        scanJob =
+            viewModelScope.launch {
+                delay(SCAN_TIMEOUT_MS)
+                if (room == null) {
+                    createRoom()
+                    settle()
+                    publish()
+                }
+            }
+    }
+
+    /** The room box around the user: on the detected floor if there is one, else on the Stage ground. */
+    private fun createRoom() {
+        val fy = realFloorY ?: 0f
+        val height = realCeilingY?.let { (it - fy).coerceIn(RoomBox.MIN_H, RoomBox.MAX_H) } ?: settings.roomH
+        val source = if (realFloorY != null) RoomSource.SCAN else RoomSource.VIRTUAL
+        roomSource = source
+        applyRoom(RoomBox.around(head ?: Vec3(0f, 1.6f, 0f), headForward, settings.roomW, settings.roomL, height, fy))
+        scanJob?.cancel()
+        clearSnack(SnackKind.SCANNING)
+        showSnack(if (source == RoomSource.VIRTUAL) SnackKind.VIRTUAL_ROOM else SnackKind.ROOM_SCANNED)
+        FireLog.i("ROOM create source=${source.name.lowercase(Locale.US)} ${room?.label} floorY=${FireLog.f(fy)} ceiling=${realCeilingY != null}")
+    }
+
+    /** A detected floor / ceiling moves the room's floor / ceiling (the user's own height wins over a later ceiling). */
+    private fun adoptScan() {
+        val r = room
+        val rf = realFloorY
+        if (r == null) {
+            if (rf != null && sceneReady) createRoom()
+            return
+        }
+        var next = r
+        if (rf != null && abs(rf - r.floorY) > ADOPT_EPS_M) next = next.copy(floorY = rf, height = (r.ceilingY - rf).coerceIn(RoomBox.MIN_H, RoomBox.MAX_H))
+        val rc = realCeilingY
+        if (rc != null && !heightTouched) {
+            val h = (rc - next.floorY).coerceIn(RoomBox.MIN_H, RoomBox.MAX_H)
+            if (abs(h - next.height) > ADOPT_EPS_M) next = next.copy(height = h)
+        }
+        if (rf != null && roomSource == RoomSource.VIRTUAL) {
+            roomSource = RoomSource.SCAN
+            if (snack == null || snack?.kind == SnackKind.VIRTUAL_ROOM) showSnack(SnackKind.ROOM_SCANNED)
+        }
+        if (next != r) {
+            applyRoom(next)
+            FireLog.i("ROOM adopt floorY=${FireLog.f(next.floorY)} height=${FireLog.f(next.height)}")
+        }
+    }
+
+    private fun applyRoom(r: RoomBox) {
+        room = r
+        floorY = r.floorY
+        floorOutline = r.corners()
+        planeTracker.setRoom(r)
+        routesDirty = true
+    }
 
     private fun settle() {
         forcedMode?.let {
@@ -444,7 +556,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             menuOpen = false
             return
         }
-        if (dialog != null) return
+        if (dialog != null || roomEdit) return
         if (mode != Mode.PLACING) return
         if (selectedId != null) {
             selectedId = null
@@ -456,7 +568,43 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             return
         }
         val plane = planeTracker.get(planeId) ?: return
-        when (val out = placeRule.place(newId(), kind, plane, point, head ?: point, planeTracker.all)) {
+        placeOn(kind, plane, point)
+    }
+
+    /**
+     * A tap outside the room box (the backstop shell): the line from the head through the tap point is
+     * met with the room's floor (the ceiling for a detector), so that a room bigger than the box still works.
+     */
+    private fun onOutsideTapped(p: Vec3) {
+        val kind = placeKind
+        val h = head
+        val r = room
+        if (menuOpen || dialog != null || roomEdit || mode != Mode.PLACING || selectedId != null || kind == null || h == null || r == null) {
+            onNothingTapped()
+            return
+        }
+        if (full(kind)) {
+            showSnack(SnackKind.MAX, kind.limit)
+            return
+        }
+        val targetY = if (kind == MarkerKind.DETECTOR) r.ceilingY else r.floorY
+        val d = p - h
+        val t = if (abs(d.y) > 1e-4f) (targetY - h.y) / d.y else -1f
+        val q = h + d * t
+        val plane = planeTracker.get(if (kind == MarkerKind.DETECTOR) RoomBox.ID_CEILING else RoomBox.ID_FLOOR)
+        if (t <= 0f || horizontal(q, h) > OUTSIDE_MAX_M || plane == null) {
+            FireLog.i("MARKER refused kind=${kind.tag} outside t=${FireLog.f(t)}")
+            showSnack(SnackKind.BAD_SURFACE)
+            emit(FireUiEffect.Sound(SoundKind.FAIL))
+            return
+        }
+        FireLog.i("TAP outside -> ${FireLog.pos(q)}")
+        placeOn(kind, plane, q)
+    }
+
+    private fun placeOn(kind: MarkerKind, plane: PlaneSurface, point: Vec3) {
+        val r = room
+        when (val out = placeRule.place(newId(), kind, plane, point, head ?: point, planeTracker.all, r?.floorY ?: floorY, r?.ceilingY ?: (floorY + RoomBox.DEFAULT_H))) {
             is PlaceMarkerUseCase.Outcome.Place -> addMarker(out.marker, via = "tap")
             PlaceMarkerUseCase.Outcome.Refused -> {
                 FireLog.i("MARKER refused kind=${kind.tag} plane=${plane.label}")
@@ -565,6 +713,11 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
 
     private fun onBack() {
         forcedMode = null
+        if (roomEdit) {
+            roomEdit = false
+            save()
+            return
+        }
         when (mode) {
             Mode.PLACING -> {
                 selectedId = null
@@ -638,6 +791,23 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         publish()
     }
 
+    /** v0.1.1 (taste profile B17): the route as a straight line from the fire spot to the exit, drawn without walking. */
+    private fun autoRoute(rec: RouteRec) {
+        val fire = fireMarker() ?: return
+        val exit = markers.firstOrNull { it.id == rec.exitId && it.found } ?: return
+        val a = Vec3(fire.position.x, floorY, fire.position.z)
+        val b = Vec3(exit.position.x, floorY, exit.position.z)
+        val len = horizontal(a, b)
+        val n = ceil(len / DrillRules.ROUTE_STEP_M).toInt().coerceAtLeast(1)
+        rec.points.clear()
+        rec.raw.clear()
+        for (i in 0..n) rec.points += a.lerp(b, i.toFloat() / n)
+        rec.length = len
+        rec.phase = RoutePhase.TO_EXIT
+        FireLog.i("ROUTE auto exit=${rec.exitId} length=${FireLog.f(len)} points=${rec.points.size}")
+        finishRoute(rec)
+    }
+
     private fun finishRoute(rec: RouteRec) {
         if (rec.length < DrillRules.ROUTE_MIN_M || rec.points.size < DrillRules.ROUTE_MIN_POINTS) {
             rec.phase = RoutePhase.SHORT
@@ -666,6 +836,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                     ScenarioPref.RANDOM -> if (Math.random() < 0.7) Scenario.SMALL else Scenario.BIG
                 }
         val d = Drill(scenario)
+        roomEdit = false
         d.alarmMarkerId = visible(MarkerKind.DETECTOR).minByOrNull { horizontal(it.position, fire.position) }?.id
         drill = d
         rearmFar()
@@ -1104,7 +1275,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         val plane = fitting.filter { hits.distanceToPlane(it, p) < 0.6f && hits.contains(it, p, margin = 0.3f) }.minByOrNull { hits.distanceToPlane(it, p) }
         val marker =
             if (plane != null) {
-                when (val out = placeRule.place(newId(), kind, plane, hits.project(plane, p), h, planes)) {
+                when (val out = placeRule.place(newId(), kind, plane, hits.project(plane, p), h, planes, room?.floorY ?: fy, room?.ceilingY ?: (fy + RoomBox.DEFAULT_H))) {
                     is PlaceMarkerUseCase.Outcome.Place -> out.marker
                     PlaceMarkerUseCase.Outcome.Refused -> Marker(newId(), kind, p)
                 }
@@ -1190,6 +1361,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         }
         if (name != "S01") clearSnack(SnackKind.SCANNING)
         if (name != "M2") clearSnack(SnackKind.LOST)
+        roomEdit = false
         selectedId = null
         routeRec = null
         fun ensureSeed() {
@@ -1203,6 +1375,11 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             "S00" -> {
                 forcedMode = Mode.STARTING
                 mode = Mode.STARTING
+            }
+            "ROOM" -> {
+                if (room == null) createRoom()
+                if (mode != Mode.PLACING) mode = Mode.HOME
+                roomEdit = true
             }
             "S01" -> {
                 forcedMode = Mode.SCANNING
@@ -1510,6 +1687,10 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             restoring = restoring,
             floorY = floorY,
             floorOutline = floorOutline,
+            room = room,
+            roomSource = roomSource,
+            ceilingScanned = realCeilingY != null,
+            roomEdit = roomEdit && (mode == Mode.HOME || mode == Mode.PLACING),
         )
     }
 
@@ -1546,6 +1727,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         }
         s.result?.let { r -> o.put("result", JSONObject().put("total", r.totalS.toDouble()).put("findings", JSONArray(r.findings.map { it.name })).put("prev", r.prevS?.toDouble())) }
         s.routeRec?.let { r -> o.put("routeRec", JSONObject().put("phase", r.phase.name).put("walked", r.walkedM.toDouble()).put("points", r.points.size)) }
+        room?.let { r -> o.put("room", JSONObject().put("source", roomSource?.name).put("w", r.width.toDouble()).put("l", r.length.toDouble()).put("h", r.height.toDouble()).put("floorY", r.floorY.toDouble()).put("yaw", r.yawDeg.toDouble()).put("cx", r.center.x.toDouble()).put("cz", r.center.z.toDouble()).put("edit", roomEdit)) }
         head?.let { h -> o.put("head", JSONArray().put(h.x.toDouble()).put(h.y.toDouble()).put(h.z.toDouble())) }
         return o.toString()
     }
@@ -1554,6 +1736,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         tickJob?.cancel()
         restoreJob?.cancel()
         snackJob?.cancel()
+        scanJob?.cancel()
     }
 
     companion object {
@@ -1563,6 +1746,9 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         private const val RESTORE_TIMEOUT_MS = 10_000L
         private const val RESTORE_RETRY_MS = 2_000L
         private const val BLOCKED_GRACE_MS = 2_000L
+        private const val SCAN_TIMEOUT_MS = 5_000L
+        private const val ADOPT_EPS_M = 0.02f
+        private const val OUTSIDE_MAX_M = 12f
         private val DRILL_STATES = setOf("S11", "S12", "S13", "S14", "S15", "S15+M1", "S16", "S17", "S19", "M1")
 
         fun horizontal(a: Vec3, b: Vec3): Float = hypot(a.x - b.x, a.z - b.z)

@@ -30,4 +30,5 @@ object FireColors {
     val Ink = Color(0xFF15181D) // design-style: fixed-figma-color ink: text on the interaction / error / primary fills
     val Pole = Color(0xFFFFFFFF) // design-style: fixed-figma-color pole: marker poles (labelPrimaryLight)
     val Gauge = Color(0xFFF4F4F4) // design-style: fixed-figma-color gauge: pressure gauge face
+    val RoomEdge = Color(0xFFFFFFFF) // design-style: fixed-figma-color roomEdge: room box outline and faint ceiling (v0.1.1)
 }

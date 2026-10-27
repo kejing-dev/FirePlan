@@ -150,6 +150,10 @@ internal class SceneMaterials(private val shared: SharedResources) {
     /** Selection ring around a selected marker: white 70 %. */
     val selection: Material = sheer(FireColors.LabelPrimaryLight, 0.70f, depthTest = false)
 
+    /** Room box (v0.1.1): edges white 45 %, ceiling / virtual floor fill white 7 %. */
+    val roomEdge: Material = sheer(FireColors.RoomEdge, 0.45f)
+    val roomFill: Material = sheer(FireColors.RoomEdge, 0.07f)
+
     private fun unlit(color: Color, twoSided: Boolean = false, depthTest: Boolean = true): UnlitMaterial =
         shared.keep(
             UnlitMaterial.create(BlendingMode.OPAQUE).apply {

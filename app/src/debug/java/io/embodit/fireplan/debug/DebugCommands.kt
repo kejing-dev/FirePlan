@@ -5,7 +5,10 @@ import io.embodit.fireplan.domain.model.LanguagePref
 import io.embodit.fireplan.domain.model.MarkerKind
 import io.embodit.fireplan.domain.model.Scenario
 import io.embodit.fireplan.domain.model.ScenarioPref
+import io.embodit.fireplan.domain.model.RoomBox
 import io.embodit.fireplan.domain.model.Vec3
+import io.embodit.fireplan.domain.usecase.HitSurfaceUseCase
+import io.embodit.fireplan.platform.FireGraph
 import io.embodit.fireplan.platform.FireLog
 import io.embodit.fireplan.ui.fire.AimTarget
 import io.embodit.fireplan.ui.fire.FireEvent
@@ -42,6 +45,13 @@ import java.util.Locale
  *                               dialog_redo, dialog_exit, coach_got_it, snackbar_action)
  * - `dump`                      the whole model as one JSON line (`DUMP {...}`), also written to files/dump.json
  * - `pose`, `bounds`, `planes`, `park`, `fps on|off`
+ *
+ * v0.1.1 (the room box, taste profile D7):
+ * - `noscan on|off`             ignore plane detection (the nothing-detected path); `scan_timeout` fires the 5 s timeout now
+ * - `room`                      opens the room card; `room w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done`
+ * - `tap <x,y,z>`               a pinch on the room / table surface nearest to that Stage point (as the system pointer would)
+ * - `ui <control>` also knows room, tray_room, room_back, room_recenter, room_w_minus / _plus, room_l_*, room_h_*,
+ *   room_turn_a / _b, room_side_a / _b, room_depth_a / _b, route_auto, snackbar_room
  */
 internal object DebugCommands {
 
@@ -106,6 +116,42 @@ internal object DebugCommands {
             "clear_now" -> host.dispatch(FireEvent.DebugClear)
             "exit" -> host.dispatch(FireEvent.ExitClicked)
             "ui" -> FireLog.i("UI $text pressed=${host.pressControl(text)}")
+            "noscan" -> host.dispatch(FireEvent.DebugNoScan(word != "off"))
+            "scan_timeout" -> host.dispatch(FireEvent.DebugScanTimeout)
+            "room" -> {
+                val w = RoomBox.SIZE_STEP_M
+                val h = RoomBox.HEIGHT_STEP_M
+                val m = RoomBox.MOVE_STEP_M
+                val t = RoomBox.TURN_STEP_DEG
+                host.dispatch(
+                    when (word) {
+                        "", "edit", "open" -> FireEvent.RoomClicked
+                        "w+" -> FireEvent.RoomResized(dw = w)
+                        "w-" -> FireEvent.RoomResized(dw = -w)
+                        "l+" -> FireEvent.RoomResized(dl = w)
+                        "l-" -> FireEvent.RoomResized(dl = -w)
+                        "h+" -> FireEvent.RoomResized(dh = h)
+                        "h-" -> FireEvent.RoomResized(dh = -h)
+                        "turn+" -> FireEvent.RoomMoved(turnDeg = t)
+                        "turn-" -> FireEvent.RoomMoved(turnDeg = -t)
+                        "left" -> FireEvent.RoomMoved(right = -m)
+                        "right" -> FireEvent.RoomMoved(right = m)
+                        "away" -> FireEvent.RoomMoved(ahead = m)
+                        "closer" -> FireEvent.RoomMoved(ahead = -m)
+                        "recenter" -> FireEvent.RoomRecentered
+                        else -> FireEvent.RoomDoneClicked
+                    }
+                )
+            }
+            "tap" -> {
+                if (numbers.size < 3) return FireLog.i("CMD tap needs x,y,z")
+                val p = Vec3(numbers[0], numbers[1], numbers[2])
+                val hits = HitSurfaceUseCase()
+                val plane = FireGraph.planes.all.filter { hits.contains(it, p, margin = 0.05f) }.minByOrNull { hits.distanceToPlane(it, p) }
+                if (plane == null || hits.distanceToPlane(plane, p) > 0.1f) return FireLog.i("CMD tap: no surface at ${FireLog.pos(p)}")
+                FireLog.i("TAP surface plane=${plane.label} kind=debug stage=${FireLog.pos(p)}")
+                host.dispatch(FireEvent.SurfaceTapped(plane.id, hits.project(plane, p)))
+            }
             "dump" -> {
                 val json = host.dumpJson()
                 FireLog.i("DUMP $json")

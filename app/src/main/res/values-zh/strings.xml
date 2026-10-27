@@ -43,7 +43,7 @@
     <string name="marker_max">最多 %d 个</string>
 
     <string name="tray_title">布置我家</string>
-    <string name="tray_route">走一遍逃生路线</string>
+    <string name="tray_route">逃生路线</string>
     <string name="route_pick">走到哪个出口？</string>
     <string name="route_walk_to_fire">走到灶台旁 · 还有 %s m</string>
     <string name="route_go">好，按平时速度走到出口</string>
@@ -122,4 +122,22 @@
     <string name="scen_big">大火</string>
     <string name="menu_clear">全部清除</string>
     <string name="menu_exit">退出</string>
+    <!-- v0.1.1：房间盒（口味 D7）与原地画路线（B17） -->
+    <string name="action_room">房间</string>
+    <string name="action_adjust">调整</string>
+    <string name="action_recenter">围绕我</string>
+    <string name="room_title">房间 · %s</string>
+    <string name="room_virtual">虚拟房间 · 可挪动对齐</string>
+    <string name="room_floor">已扫到地面 · 天花板为虚拟</string>
+    <string name="room_floor_ceiling">已扫到地面和天花板</string>
+    <string name="room_w">宽</string>
+    <string name="room_l">长</string>
+    <string name="room_h">高</string>
+    <string name="room_turn">旋转</string>
+    <string name="room_side">左右</string>
+    <string name="room_depth">远近</string>
+    <string name="snack_virtual_room">没扫到地面 · 已用虚拟房间</string>
+    <string name="snack_room_scanned">扫到地面 · 房间已贴上</string>
+    <string name="route_auto">原地画路线</string>
+    <string name="route_or_draw">不想走？原地画一条直线路线</string>
 </resources>

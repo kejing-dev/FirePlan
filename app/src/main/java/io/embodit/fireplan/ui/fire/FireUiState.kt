@@ -2,6 +2,8 @@ package io.embodit.fireplan.ui.fire
 
 import io.embodit.fireplan.domain.model.LanguagePref
 import io.embodit.fireplan.domain.model.MarkerKind
+import io.embodit.fireplan.domain.model.RoomBox
+import io.embodit.fireplan.domain.model.RoomSource
 import io.embodit.fireplan.domain.model.Scenario
 import io.embodit.fireplan.domain.model.ScenarioPref
 import io.embodit.fireplan.domain.model.Vec3
@@ -62,6 +64,12 @@ enum class SnackKind(val durationMs: Long) {
     UNSAVED(8000L),
     LOST(SNACK_STICKY_MS),
     MAX(2600L),
+
+    /** v0.1.1: nothing detected within the scan timeout, the virtual room is in use (action: adjust). */
+    VIRTUAL_ROOM(6000L),
+
+    /** v0.1.1: the floor was detected, the room stands on it. */
+    ROOM_SCANNED(3000L),
 }
 
 data class SnackUi(val id: Int, val kind: SnackKind, val a: Int = 0, val b: Int = 0)
@@ -152,6 +160,11 @@ data class FireUiState(
     val floorY: Float = 0f,
     /** Outline of the floor plane (for the top-down map), Stage metres. */
     val floorOutline: List<Vec3> = emptyList(),
+    /** v0.1.1: the room box the markers go into (null while scanning), where its floor came from, and whether it is being adjusted. */
+    val room: RoomBox? = null,
+    val roomSource: RoomSource? = null,
+    val ceilingScanned: Boolean = false,
+    val roomEdit: Boolean = false,
 ) {
     val placedCount: Int
         get() = markers.size
@@ -189,6 +202,7 @@ data class FireUiState(
                     dialog == DialogKind.UNAVAILABLE -> "S22"
                     menuOpen -> "S20"
                     d != null && d.paused -> "S19"
+                    roomEdit -> "ROOM"
                     else -> baseName
                 }
             val m1 = if (d != null && d.phase == DrillPhase.SWEEP && d.distanceBad != null && !d.paused) "+M1" else ""
@@ -229,7 +243,8 @@ sealed interface FireEvent {
     // scene
     data object SceneReady : FireEvent
 
-    data class PlanesChanged(val count: Int, val hasFloor: Boolean, val floorY: Float, val hasCeiling: Boolean, val floorOutline: List<Vec3>) : FireEvent
+    /** Plane detection's facts (v0.1.1): only the floor and the ceiling height are used. */
+    data class PlanesChanged(val count: Int, val realFloorY: Float?, val realCeilingY: Float?) : FireEvent
 
     data class TrackingChanged(val lost: Boolean) : FireEvent
 
@@ -241,6 +256,9 @@ sealed interface FireEvent {
     data class MarkerTapped(val id: String) : FireEvent
 
     data object NothingTapped : FireEvent
+
+    /** A tap that hit no surface (outside the room box) at this Stage point. */
+    data class OutsideTapped(val point: Vec3) : FireEvent
 
     data object PinRingTapped : FireEvent
 
@@ -274,6 +292,21 @@ sealed interface FireEvent {
     data object RouteRedoClicked : FireEvent
 
     data object RouteDoneClicked : FireEvent
+
+    /** v0.1.1: draw the route from the fire spot to the exit without walking it. */
+    data object RouteAutoClicked : FireEvent
+
+    // room (v0.1.1)
+    data object RoomClicked : FireEvent
+
+    data object RoomDoneClicked : FireEvent
+
+    data class RoomResized(val dw: Float = 0f, val dl: Float = 0f, val dh: Float = 0f) : FireEvent
+
+    /** Moved along the viewer's heading (right / ahead, metres) and turned (degrees). */
+    data class RoomMoved(val right: Float = 0f, val ahead: Float = 0f, val turnDeg: Float = 0f) : FireEvent
+
+    data object RoomRecentered : FireEvent
 
     data object DeleteMarkerClicked : FireEvent
 
@@ -352,6 +385,12 @@ sealed interface FireEvent {
     data class DebugTracking(val lost: Boolean?) : FireEvent
 
     data object DebugClear : FireEvent
+
+    /** `noscan on|off`: ignore plane detection (the nothing-detected path). */
+    data class DebugNoScan(val on: Boolean) : FireEvent
+
+    /** `scan_timeout`: the scan timeout fires now. */
+    data object DebugScanTimeout : FireEvent
 }
 
 /** One-off effects the screen plays (sound, closing the Stage). */

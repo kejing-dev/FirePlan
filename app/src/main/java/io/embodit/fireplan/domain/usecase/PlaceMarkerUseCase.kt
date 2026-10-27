@@ -7,12 +7,15 @@ import io.embodit.fireplan.domain.model.SurfaceKind
 import io.embodit.fireplan.domain.model.Vec3
 
 /**
- * Where a tap may put a marker (design `rules.placeMarker`):
- * - fire spot: a TABLE / CABINET top or the FLOOR;
- * - extinguisher: the FLOOR;
- * - exit: the FLOOR; a tap on a DOOR plane lands on the floor 0.3 m in front of the door;
- * - detector: the CEILING; without a ceiling plane a WALL is allowed (checked against the wall's top).
- * Anything else is refused ("can't place here").
+ * Where a pinch puts a marker. v0.1.1 (user, 2026-10-26: "smoke detector and exit can't be placed"):
+ * nothing is refused any more. Every surface of the room box (floor, ceiling, walls) and every detected
+ * table top takes every kind; the marker goes where its kind belongs, straight above / below or at the
+ * foot of the wall that was pointed at:
+ * - fire spot: a detected TABLE / CABINET top, else the floor (below the point, or at the wall's foot);
+ * - extinguisher, exit: the floor (a wall or door = its foot, 0.3 m into the room);
+ * - detector: the ceiling (above the point). A wall pointed at within 0.6 m of the ceiling takes a
+ *   wall-mounted detector; lower on a wall it goes on the ceiling 0.6 m in from that wall.
+ * [floorY] / [ceilingY] are the room's.
  */
 class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = DetectorCheckUseCase()) {
 
@@ -29,44 +32,52 @@ class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = Detec
         point: Vec3,
         head: Vec3,
         planes: Collection<PlaneSurface>,
+        floorY: Float,
+        ceilingY: Float,
     ): Outcome {
-        val floorY = floorHeight(planes) ?: point.y
+        val vertical = plane.kind == SurfaceKind.WALL || plane.kind == SurfaceKind.DOOR || (!plane.horizontal && plane.kind != SurfaceKind.FLOOR && plane.kind != SurfaceKind.CEILING)
+        val inward = if (vertical) inwardOf(plane, point, head) ?: return Outcome.Refused else null
+        fun floorBelow() = Vec3(point.x, floorY, point.z)
+        fun wallFoot(offset: Float) = Vec3(point.x, floorY, point.z) + inward!! * offset
         return when (kind) {
             MarkerKind.FIRE ->
                 when {
-                    plane.kind == SurfaceKind.FLOOR && plane.horizontal -> Outcome.Place(Marker(id, kind, point, onTable = false))
                     isTopFace(plane) -> Outcome.Place(Marker(id, kind, point, onTable = true))
-                    else -> Outcome.Refused
+                    vertical -> Outcome.Place(Marker(id, kind, wallFoot(DOOR_OFFSET_M)))
+                    else -> Outcome.Place(Marker(id, kind, floorBelow()))
                 }
-            MarkerKind.EXTINGUISHER ->
-                if (plane.kind == SurfaceKind.FLOOR && plane.horizontal) Outcome.Place(Marker(id, kind, point)) else Outcome.Refused
-            MarkerKind.EXIT ->
-                when {
-                    plane.kind == SurfaceKind.FLOOR && plane.horizontal -> Outcome.Place(Marker(id, kind, point))
-                    plane.kind == SurfaceKind.DOOR -> {
-                        // the foot of the door, 0.3 m into the room (towards the head)
-                        val n = plane.normal
-                        var flat = Vec3(n.x, 0f, n.z)
-                        if (flat.length < 1e-3f) return Outcome.Refused
-                        flat = flat.normalized()
-                        if ((head - plane.centroid).dot(flat) < 0f) flat = -flat
-                        val c = plane.centroid
-                        val foot = Vec3(c.x, floorY, c.z) + flat * DOOR_OFFSET_M
-                        Outcome.Place(Marker(id, kind, foot))
+            MarkerKind.EXTINGUISHER, MarkerKind.EXIT ->
+                Outcome.Place(Marker(id, kind, if (vertical) wallFoot(DOOR_OFFSET_M) else floorBelow()))
+            MarkerKind.DETECTOR -> {
+                val onWall = vertical && point.y >= ceilingY - WALL_MOUNT_ZONE_M
+                val pos =
+                    when {
+                        onWall -> point
+                        vertical -> Vec3(point.x, ceilingY, point.z) + inward!! * DETECTOR_IN_FROM_WALL_M
+                        else -> Vec3(point.x, ceilingY, point.z)
                     }
-                    else -> Outcome.Refused
-                }
-            MarkerKind.DETECTOR ->
-                when {
-                    plane.kind == SurfaceKind.CEILING ->
-                        Outcome.Place(Marker(id, kind, point, onCeiling = true, wallDistM = detectorCheck.wallDistance(point, planes)))
-                    plane.kind == SurfaceKind.WALL && !hasCeiling(planes) -> {
-                        val below = (plane.maxY - point.y).coerceAtLeast(0f)
-                        Outcome.Place(Marker(id, kind, point, onCeiling = false, belowCeilingM = below, wallDistM = detectorCheck.wallDistance(point, planes)))
-                    }
-                    else -> Outcome.Refused
-                }
+                Outcome.Place(
+                    Marker(
+                        id,
+                        kind,
+                        pos,
+                        onCeiling = !onWall,
+                        belowCeilingM = if (onWall) (ceilingY - point.y).coerceAtLeast(0f) else null,
+                        wallDistM = detectorCheck.wallDistance(pos, planes),
+                    )
+                )
+            }
         }
+    }
+
+    /** The wall's level normal turned towards the head (into the room), or null for a level plane. */
+    private fun inwardOf(plane: PlaneSurface, point: Vec3, head: Vec3): Vec3? {
+        val n = plane.normal
+        var flat = Vec3(n.x, 0f, n.z)
+        if (flat.length < 1e-3f) return null
+        flat = flat.normalized()
+        if ((head - point).dot(flat) < 0f) flat = -flat
+        return flat
     }
 
     /** A TABLE / CABINET plane whose normal points up: its top face. */
@@ -75,6 +86,8 @@ class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = Detec
 
     companion object {
         const val DOOR_OFFSET_M = 0.3f
+        const val WALL_MOUNT_ZONE_M = 0.6f
+        const val DETECTOR_IN_FROM_WALL_M = 0.6f
 
         fun hasCeiling(planes: Collection<PlaneSurface>): Boolean = planes.any { it.kind == SurfaceKind.CEILING }
 

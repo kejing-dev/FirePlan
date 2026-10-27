@@ -28,6 +28,8 @@ import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
 import io.embodit.fireplan.R
 import io.embodit.fireplan.domain.model.MarkerKind
+import io.embodit.fireplan.domain.model.RoomBox
+import io.embodit.fireplan.domain.model.RoomSource
 import io.embodit.fireplan.ui.fire.FireEvent
 import io.embodit.fireplan.ui.fire.FireUiState
 import io.embodit.fireplan.ui.fire.Mode
@@ -38,14 +40,18 @@ import io.embodit.fireplan.ui.theme.FireColors
 
 /**
  * The main panel (400 x 300 dp at 0.75): home (S00 - S03), the setup tray (S04 / S05), the exit
- * pick (S06) and the route card (S07 / S08). Its content is swapped by mode; the drill card and the
- * result panel are separate pooled panels in the same place.
+ * pick (S06) and the route card (S07 / S08), and (v0.1.1) the room card. Its content is swapped by
+ * mode; the drill card and the result panel are separate pooled panels in the same place.
  */
 @Composable
 internal fun MainPanel(state: FireUiState, filled: Boolean, onEvent: (FireEvent) -> Unit) {
     val (w, h) = PanelSpec.MAIN_SIZE
     Glass(w.dp, h.dp) {
         if (!filled) return@Glass
+        if (state.roomEdit && state.room != null) {
+            RoomCard(state, state.room, onEvent)
+            return@Glass
+        }
         when (state.mode) {
             Mode.PLACING -> SetupTray(state, onEvent)
             Mode.ROUTE_PICK -> ExitPick(state, onEvent)
@@ -60,7 +66,12 @@ private fun Home(state: FireUiState, onEvent: (FireEvent) -> Unit) {
     val starting = state.starting
     TitleRow(
         title = rs(R.string.home_title),
-        trailing = { Key("more", R.drawable.ic_more, rs(R.string.action_more), enabled = !starting) { onEvent(FireEvent.MoreClicked) } },
+        trailing = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Key("room", R.drawable.ic_room, rs(R.string.action_room), enabled = !starting && state.room != null) { onEvent(FireEvent.RoomClicked) }
+                Key("more", R.drawable.ic_more, rs(R.string.action_more), enabled = !starting) { onEvent(FireEvent.MoreClicked) }
+            }
+        },
     )
     if (starting) {
         Row(modifier = Modifier.fillMaxWidth().height(24.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -103,7 +114,11 @@ private fun Home(state: FireUiState, onEvent: (FireEvent) -> Unit) {
 /** The setup tray: four tiles (what the next pinch places) and the route button. */
 @Composable
 private fun SetupTray(state: FireUiState, onEvent: (FireEvent) -> Unit) {
-    TitleRow(title = rs(R.string.tray_title), leading = { Key("back", R.drawable.ic_back, rs(R.string.action_back)) { onEvent(FireEvent.BackClicked) } })
+    TitleRow(
+        title = rs(R.string.tray_title),
+        leading = { Key("back", R.drawable.ic_back, rs(R.string.action_back)) { onEvent(FireEvent.BackClicked) } },
+        trailing = { Key("tray_room", R.drawable.ic_room, rs(R.string.action_room), enabled = state.room != null) { onEvent(FireEvent.RoomClicked) } },
+    )
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Tile(state, MarkerKind.FIRE, onEvent, Modifier.weight(1f))
         Tile(state, MarkerKind.EXIT, onEvent, Modifier.weight(1f))
@@ -179,6 +194,12 @@ private fun ColumnScope.RouteCard(state: FireUiState, onEvent: (FireEvent) -> Un
         RoutePhase.TO_FIRE -> {
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = rs(R.string.route_walk_to_fire, fmt1(rec.toFireM)), color = PicoTheme.colorScheme.labelPrimary, style = big, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.weight(1f))
+            // v0.1.1 (taste profile B17): the route can be drawn without walking it
+            Text(text = rs(R.string.route_or_draw), color = PicoTheme.colorScheme.labelSecondary, style = FireType.figure, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                WordButton("route_auto", rs(R.string.route_auto), { onEvent(FireEvent.RouteAutoClicked) }, primary = true, minWidth = 160.dp, iconRes = R.drawable.ic_route)
+            }
         }
         RoutePhase.TO_EXIT -> {
             Spacer(modifier = Modifier.height(16.dp))
@@ -205,6 +226,64 @@ private fun ColumnScope.RouteCard(state: FireUiState, onEvent: (FireEvent) -> Un
                 if (ok) WordButton("route_finish", rs(R.string.action_finish), { onEvent(FireEvent.RouteDoneClicked) }, primary = true)
             }
         }
+    }
+}
+
+/**
+ * The room card (v0.1.1, taste profile D7): size of the room box (width / length in 0.5 m steps, height in
+ * 0.1 m steps) on the left, its placement relative to the viewer (turn 5 degrees, slide and push 0.25 m)
+ * on the right; "around me" puts it back around the viewer. Every press acts at once in the room.
+ */
+@Composable
+private fun RoomCard(state: FireUiState, room: RoomBox, onEvent: (FireEvent) -> Unit) {
+    TitleRow(
+        title = rs(R.string.room_title, room.label),
+        leading = { Key("room_back", R.drawable.ic_back, rs(R.string.action_back)) { onEvent(FireEvent.RoomDoneClicked) } },
+        trailing = { WordButton("room_recenter", rs(R.string.action_recenter), { onEvent(FireEvent.RoomRecentered) }, minWidth = 104.dp) },
+    )
+    val status =
+        when {
+            state.roomSource != RoomSource.SCAN -> rs(R.string.room_virtual)
+            state.ceilingScanned -> rs(R.string.room_floor_ceiling)
+            else -> rs(R.string.room_floor)
+        }
+    Text(text = status, color = PicoTheme.colorScheme.labelSecondary, style = FireType.figure, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val w = RoomBox.SIZE_STEP_M
+    val h = RoomBox.HEIGHT_STEP_M
+    val m = RoomBox.MOVE_STEP_M
+    val t = RoomBox.TURN_STEP_DEG
+    StepRow(rs(R.string.room_w) + " " + fmt1(room.width), "room_w", R.drawable.ic_minus, R.drawable.ic_plus, { onEvent(FireEvent.RoomResized(dw = -w)) }, { onEvent(FireEvent.RoomResized(dw = w)) },
+        rs(R.string.room_turn), "room_turn", R.drawable.ic_turn_left, R.drawable.ic_turn_right, { onEvent(FireEvent.RoomMoved(turnDeg = -t)) }, { onEvent(FireEvent.RoomMoved(turnDeg = t)) })
+    StepRow(rs(R.string.room_l) + " " + fmt1(room.length), "room_l", R.drawable.ic_minus, R.drawable.ic_plus, { onEvent(FireEvent.RoomResized(dl = -w)) }, { onEvent(FireEvent.RoomResized(dl = w)) },
+        rs(R.string.room_side), "room_side", R.drawable.ic_arrow_left, R.drawable.ic_arrow_right, { onEvent(FireEvent.RoomMoved(right = -m)) }, { onEvent(FireEvent.RoomMoved(right = m)) })
+    StepRow(rs(R.string.room_h) + " " + fmt1(room.height), "room_h", R.drawable.ic_minus, R.drawable.ic_plus, { onEvent(FireEvent.RoomResized(dh = -h)) }, { onEvent(FireEvent.RoomResized(dh = h)) },
+        rs(R.string.room_depth), "room_depth", R.drawable.ic_arrow_down, R.drawable.ic_arrow_up, { onEvent(FireEvent.RoomMoved(ahead = -m)) }, { onEvent(FireEvent.RoomMoved(ahead = m)) })
+}
+
+/** One row of the room card: a size pair (label, minus, plus) and a placement pair (label, two keys). */
+@Composable
+private fun StepRow(
+    sizeLabel: String,
+    sizeName: String,
+    lessIcon: Int,
+    moreIcon: Int,
+    onLess: () -> Unit,
+    onMore: () -> Unit,
+    moveLabel: String,
+    moveName: String,
+    aIcon: Int,
+    bIcon: Int,
+    onA: () -> Unit,
+    onB: () -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth().height(KeyHeight), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(text = sizeLabel, color = PicoTheme.colorScheme.labelPrimary, style = FireType.figure, maxLines = 1, softWrap = false, modifier = Modifier.width(84.dp))
+        Key("${sizeName}_minus", lessIcon, sizeLabel, width = 48.dp, onClick = onLess)
+        Key("${sizeName}_plus", moreIcon, sizeLabel, width = 48.dp, onClick = onMore)
+        Spacer(modifier = Modifier.weight(1f))
+        Text(text = moveLabel, color = PicoTheme.colorScheme.labelPrimary, style = FireType.figure, maxLines = 1, softWrap = false, modifier = Modifier.width(44.dp))
+        Key("${moveName}_a", aIcon, moveLabel, width = 48.dp, onClick = onA)
+        Key("${moveName}_b", bIcon, moveLabel, width = 48.dp, onClick = onB)
     }
 }
 

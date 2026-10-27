@@ -5,6 +5,7 @@ import io.embodit.fireplan.domain.model.DrillRecord
 import io.embodit.fireplan.domain.model.LanguagePref
 import io.embodit.fireplan.domain.model.Marker
 import io.embodit.fireplan.domain.model.MarkerKind
+import io.embodit.fireplan.domain.model.RoomBox
 import io.embodit.fireplan.domain.model.Scenario
 import io.embodit.fireplan.domain.model.ScenarioPref
 import io.embodit.fireplan.domain.model.Settings
@@ -95,7 +96,10 @@ object SessionJsonCodec {
                 .put("language", s.settings.language.tag)
                 .put("hints", s.settings.hints)
                 .put("scenario", s.settings.scenario.tag)
-                .put("coachSeen", s.settings.coachSeen),
+                .put("coachSeen", s.settings.coachSeen)
+                .put("roomW", s.settings.roomW.toDouble())
+                .put("roomL", s.settings.roomL.toDouble())
+                .put("roomH", s.settings.roomH.toDouble()),
         )
         return root.toString()
     }
@@ -144,6 +148,9 @@ object SessionJsonCodec {
                 hints = st.optBoolean("hints", true),
                 scenario = ScenarioPref.entries.firstOrNull { it.tag == st.optString("scenario") } ?: ScenarioPref.RANDOM,
                 coachSeen = st.optBoolean("coachSeen", false),
+                roomW = st.optDouble("roomW", RoomBox.DEFAULT_W.toDouble()).toFloat().coerceIn(RoomBox.MIN_W, RoomBox.MAX_W),
+                roomL = st.optDouble("roomL", RoomBox.DEFAULT_L.toDouble()).toFloat().coerceIn(RoomBox.MIN_L, RoomBox.MAX_L),
+                roomH = st.optDouble("roomH", RoomBox.DEFAULT_H.toDouble()).toFloat().coerceIn(RoomBox.MIN_H, RoomBox.MAX_H),
             )
         return StoredSession(markers, routes, records, settings)
     }
