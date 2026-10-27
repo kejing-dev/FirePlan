@@ -45,7 +45,12 @@ virtual room) and B17 (as little walking as possible):
   exit (0.4 m dots); after any route is saved a bright run travels along it from the fire spot to the
   exit (route preview, `FireScene.previewFrame`). Walking the route stays available. The drill itself
   still involves walking (fetch the extinguisher / reach the exit).
-- QA hooks added: `noscan on|off`, `scan_timeout`, `room [w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done]`,
+- UI audit fixes (2026-10-26, emulator-5562): the extinguisher prop moved from 20 / 28 degrees to 36 / 42 degrees
+  right / down (`Follower.PROP_OFFSET`) because it covered the flame while aiming; the marker strip and detector
+  card of a ceiling detector hang at eye height straight below it (`FireScene.placeStrips`, taste D10) instead of
+  up at the ceiling; the `seed` extinguisher moved to 35 degrees right so its plate no longer sits behind the fire
+  spot's. Audit list and shots: `../spatial-app-factory/apps/fire-plan/build/ui-audit.md`.
+- QA hooks added: `noscan on|off` (on = ignore detection and drop the room: S01, then the virtual room after 5 s), `scan_timeout`, `room [w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done]`,
   `state ROOM`, `tap x,y,z` (a pinch on the room surface at that Stage point), and `ui` controls
   `room`, `tray_room`, `room_*`, `route_auto`, `snackbar_room`. `dump` has a `room` object.
 - Headset install note: v0.1.0 on the headset was signed on another machine (debug keystore differs),
@@ -203,6 +208,12 @@ Material gate: `grep -rEf ../spatial-app-factory/bin/material-grep.txt --include
 - Noto Sans SC is bundled whole (17 MB) instead of a subset (no fontTools on the build machine).
 
 ## Emulator lessons (2026-10-25)
+
+- (2026-10-26, v0.1.1) The emulator reports its floor at y = 0.40 (the headset: 0.03), so the scanned room stands
+  at 0.40 there and the virtual one (`noscan on`) at 0. On a machine short of memory the emulator renders at 2 - 3
+  fps: the scene build takes 13 - 15 s (1.2 s on the headset) and the PICO system UI may raise "isn't responding"
+  dialogs that linger; check `dumpsys input | grep -c "Application Not Responding"` before every screenshot and press
+  Wait / Close app with a slow click (`emu.sh click X Y -NoFast -HoldMs 1200`, coordinates x 0.84375 on a 2560 px AVD).
 
 - Never send `KEYCODE_HOME` to the emulator: the system's "Back to Home" dialog cannot be dismissed over
   adb and the Stage's renderer stays black afterwards; only `adb emu kill` + a fresh start recovers it.

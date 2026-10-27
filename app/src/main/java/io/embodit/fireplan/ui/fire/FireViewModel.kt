@@ -362,6 +362,18 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 realFloorY = planeTracker.realFloorY
                 realCeilingY = planeTracker.realCeilingY
                 FireLog.i("ROOM noscan=${event.on}")
+                if (event.on && drill == null) {
+                    // as a cold start where nothing is detected: scanning again, the 5 s timeout makes the virtual room
+                    room = null
+                    roomSource = null
+                    roomEdit = false
+                    planeTracker.setRoom(null)
+                    scanJob?.cancel()
+                    scanJob = null
+                    if (mode == Mode.HOME || mode == Mode.PLACING || mode == Mode.SCANNING) mode = Mode.SCANNING
+                    showSnack(SnackKind.SCANNING)
+                    startScanTimer()
+                }
             }
             FireEvent.DebugScanTimeout -> {
                 if (room == null) createRoom()
@@ -1194,7 +1206,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 .minByOrNull { it.centroid.distanceTo(h) }
         // on the floor: 1.8 m ahead and 0.9 m right, in the open (the emulator's bed platform hides anything behind it)
         val fire = table?.centroid ?: pick(listOf(onFloor(h + fwd * 1.8f + right * 0.9f), onFloor(h + fwd * 2f), onFloor(h + fwd * 1.5f)))
-        val ext = pick(listOf(onFloor(h + fwd * 3.2f + right * 1.6f), onFloor(h + fwd * 2.5f + right * 1.2f), onFloor(h + fwd * 1.5f + right * 1f)))
+        val ext = pick(listOf(onFloor(h + fwd * 3.2f + right * 2.3f), onFloor(h + fwd * 2.5f + right * 1.2f), onFloor(h + fwd * 1.5f + right * 1f)))
         val doors = planes.filter { it.kind == SurfaceKind.DOOR }
         fun doorFoot(d: PlaneSurface): Vec3 {
             val n = d.normal

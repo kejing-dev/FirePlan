@@ -489,7 +489,11 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
     private fun placeStrips(state: FireUiState, rig: PanelRig) {
         if (state.mode != Mode.PLACING) return
         val id = state.selectedId ?: return
-        val plate = markers?.platePosition(id) ?: return
+        val raw = markers?.platePosition(id) ?: return
+        // v0.1.1 UI audit (taste profile D10): a plate on the ceiling is out of the comfortable view, so its strip
+        // and card hang straight below it at eye height instead of up at the ceiling
+        val eye = head.position.y + EYE_LIFT_M
+        val plate = if (hasHead && raw.y > eye) Vec3(raw.x, eye, raw.z) else raw
         val k = PanelSpec.MAIN_SCALE
         val (_, sh) = PanelSpec.halfM(PanelSpec.STRIP, k)
         rig[PanelSpec.STRIP]?.show(plate + Vec3(0f, MarkerViews.PLATE_R + STRIP_GAP_M + sh, 0f), k)
@@ -766,6 +770,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         private const val COACH_GAP_M = 0.03f
         private const val STRIP_GAP_M = 0.06f
         private const val CARD_GAP_M = 0.10f
+        private const val EYE_LIFT_M = 0.10f
 
         /** View pixels of a system drag -> metres at 1 m (0.4 mm each, times the depth factor). */
         private const val PX_M = 0.0004f

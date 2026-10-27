@@ -172,7 +172,10 @@ internal class Follower(
         /** The main panel leans back 12 degrees. */
         val MAIN_LEAN: Quat4 = Quat4.axisAngle(Vec3.RIGHT, -0.20944f)
 
-        /** 20 degrees right and 28 degrees down, 0.45 m from the head (design `entities3d.extinguisher`). */
-        val PROP_OFFSET = Vec3(0.1359f, -0.2113f, -0.3734f)
+        /**
+         * 36 degrees right and 42 degrees down, 0.45 m from the head. v0.1.1 UI audit: the design's 20 / 28 degrees
+         * put the prop right over the flame the user looks down at while aiming; this keeps it in the lower right corner.
+         */
+        val PROP_OFFSET = Vec3(0.197f, -0.301f, -0.271f)
     }
 }
