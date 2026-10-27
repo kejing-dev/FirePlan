@@ -1,5 +1,7 @@
 package io.embodit.fireplan.ui.fire.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +54,10 @@ internal fun MainPanel(state: FireUiState, filled: Boolean, onEvent: (FireEvent)
             RoomCard(state, state.room, onEvent)
             return@Glass
         }
+        if (state.listOpen) {
+            MarkerList(state, onEvent)
+            return@Glass
+        }
         when (state.mode) {
             Mode.PLACING -> SetupTray(state, onEvent)
             Mode.ROUTE_PICK -> ExitPick(state, onEvent)
@@ -68,6 +74,7 @@ private fun Home(state: FireUiState, onEvent: (FireEvent) -> Unit) {
         title = rs(R.string.home_title),
         trailing = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MuteKey(state, onEvent)
                 Key("room", R.drawable.ic_room, rs(R.string.action_room), enabled = !starting && state.room != null) { onEvent(FireEvent.RoomClicked) }
                 Key("more", R.drawable.ic_more, rs(R.string.action_more), enabled = !starting) { onEvent(FireEvent.MoreClicked) }
             }
@@ -117,7 +124,12 @@ private fun SetupTray(state: FireUiState, onEvent: (FireEvent) -> Unit) {
     TitleRow(
         title = rs(R.string.tray_title),
         leading = { Key("back", R.drawable.ic_back, rs(R.string.action_back)) { onEvent(FireEvent.BackClicked) } },
-        trailing = { Key("tray_room", R.drawable.ic_room, rs(R.string.action_room), enabled = state.room != null) { onEvent(FireEvent.RoomClicked) } },
+        trailing = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Key("tray_list", R.drawable.ic_list, rs(R.string.action_list), enabled = state.placedCount > 0) { onEvent(FireEvent.ListClicked) }
+                Key("tray_room", R.drawable.ic_room, rs(R.string.action_room), enabled = state.room != null) { onEvent(FireEvent.RoomClicked) }
+            }
+        },
     )
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Tile(state, MarkerKind.FIRE, onEvent, Modifier.weight(1f))
@@ -258,6 +270,44 @@ private fun RoomCard(state: FireUiState, room: RoomBox, onEvent: (FireEvent) -> 
         rs(R.string.room_side), "room_side", R.drawable.ic_arrow_left, R.drawable.ic_arrow_right, { onEvent(FireEvent.RoomMoved(right = -m)) }, { onEvent(FireEvent.RoomMoved(right = m)) })
     StepRow(rs(R.string.room_h) + " " + fmt1(room.height), "room_h", R.drawable.ic_minus, R.drawable.ic_plus, { onEvent(FireEvent.RoomResized(dh = -h)) }, { onEvent(FireEvent.RoomResized(dh = h)) },
         rs(R.string.room_depth), "room_depth", R.drawable.ic_arrow_down, R.drawable.ic_arrow_up, { onEvent(FireEvent.RoomMoved(ahead = -m)) }, { onEvent(FireEvent.RoomMoved(ahead = m)) })
+}
+
+/** The sound key (taste profile D15): one press mutes the alarm and every effect; the state is kept. */
+@Composable
+internal fun MuteKey(state: FireUiState, onEvent: (FireEvent) -> Unit) {
+    Key(
+        "mute",
+        if (state.muted) R.drawable.ic_sound_off else R.drawable.ic_sound_on,
+        rs(if (state.muted) R.string.action_unmute else R.string.action_mute),
+    ) { onEvent(FireEvent.MuteToggled) }
+}
+
+/**
+ * The placed markers (v0.1.1, taste profile D14): one row each with its distance, "move to front" (1.5 m ahead of
+ * the user) and delete, so that a marker can be fetched or removed without walking to it or pointing at it.
+ */
+@Composable
+private fun ColumnScope.MarkerList(state: FireUiState, onEvent: (FireEvent) -> Unit) {
+    TitleRow(
+        title = rs(R.string.list_title, state.placedCount),
+        leading = { Key("list_back", R.drawable.ic_back, rs(R.string.action_back)) { onEvent(FireEvent.ListClosed) } },
+    )
+    Column(modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val order = listOf(MarkerKind.FIRE, MarkerKind.EXIT, MarkerKind.EXTINGUISHER, MarkerKind.DETECTOR)
+        for (m in state.markers.sortedBy { order.indexOf(it.kind) }) {
+            Row(modifier = Modifier.fillMaxWidth().height(KeyHeight), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(painter = painterResource(kindIcon(m.kind)), contentDescription = null, modifier = Modifier.size(24.dp), tint = kindColor(m.kind))
+                val name = kindName(m.kind) + if (m.exitIndex > 0) " " + (if (m.exitIndex == 1) rs(R.string.exit_1) else rs(R.string.exit_2)) else ""
+                Text(text = name, color = PicoTheme.colorScheme.labelPrimary, style = FireType.figure, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                state.headAt?.let { h ->
+                    val d = kotlin.math.hypot(m.position.x - h.x, m.position.z - h.z)
+                    Text(text = fmt1(d) + " m", color = PicoTheme.colorScheme.labelSecondary, style = FireType.figure, maxLines = 1, softWrap = false)
+                }
+                Key("list_front_${m.id}", R.drawable.ic_bring, rs(R.string.action_to_front), width = 48.dp) { onEvent(FireEvent.MarkerToFront(m.id)) }
+                Key("list_delete_${m.id}", R.drawable.ic_trash, rs(R.string.action_delete), width = 48.dp) { onEvent(FireEvent.MarkerDeleted(m.id)) }
+            }
+        }
+    }
 }
 
 /** One row of the room card: a size pair (label, minus, plus) and a placement pair (label, two keys). */

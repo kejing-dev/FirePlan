@@ -87,6 +87,17 @@ class RoomPlacementTest {
     }
 
     @Test
+    fun floorMarkerNeverStandsInTheUser() {
+        val m = place(MarkerKind.EXIT, RoomBox.ID_FLOOR, Vec3(0.1f, 0f, -0.2f))
+        val d = kotlin.math.hypot(m.position.x - head.x, m.position.z - head.z)
+        assertEquals(PlaceMarkerUseCase.HEAD_CLEAR_M, d, 1e-3f)
+        // pushed straight out along head -> point
+        assertTrue(m.position.x > 0f && m.position.z < 0f)
+        val far = place(MarkerKind.EXIT, RoomBox.ID_FLOOR, Vec3(1f, 0f, -2f))
+        assertEquals(1f, far.position.x, 1e-4f)
+    }
+
+    @Test
     fun resizeKeepsFrontWallAndClamps() {
         val front = plane(RoomBox.ID_FRONT).centroid.z
         val longer = room.resized(dl = 1f)

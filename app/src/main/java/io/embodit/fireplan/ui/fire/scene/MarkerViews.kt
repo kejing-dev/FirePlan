@@ -74,6 +74,35 @@ internal class MarkerViews(
 
     fun position(id: String): Vec3? = views[id]?.position
 
+    /**
+     * The marker whose icon plate the ray passes closest to (within [PICK_R]), nearest first; null when none.
+     * v0.1.1: the controller ray picks a marker to drag (taste profile D14).
+     */
+    fun pick(origin: Vec3, direction: Vec3): String? {
+        var best: String? = null
+        var bestT = Float.MAX_VALUE
+        for (v in views.values) {
+            val to = v.platePos - origin
+            val t = to.dot(direction)
+            if (t <= 0f) continue
+            val miss = (to - direction * t).length
+            if (miss <= PICK_R && t < bestT) {
+                bestT = t
+                best = v.id
+            }
+        }
+        return best
+    }
+
+    /** Moves a marker's entities while it is dragged; the next [sync] puts it where the model says. */
+    fun moveTo(id: String, position: Vec3) {
+        val v = views[id] ?: return
+        if (v.position == position) return
+        v.platePos = position + (v.platePos - v.position)
+        v.position = position
+        v.group.setLocal(position = position)
+    }
+
     /** Idempotent diff of the markers against the entities. */
     fun sync(markers: List<MarkerUi>, selectedId: String?) {
         val wanted = markers.associateBy { it.id }
@@ -274,6 +303,7 @@ internal class MarkerViews(
         const val POLE_R = 0.004f
         const val POLE_M = 0.9f
         const val PLATE_R = 0.06f
+        const val PICK_R = 0.15f
         const val STEM_M = 0.15f
         const val TABLE_PLATE_M = 0.25f
         private const val TEX_PX = 128

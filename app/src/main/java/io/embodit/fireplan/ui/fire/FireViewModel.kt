@@ -94,6 +94,8 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
     private var room: RoomBox? = null
     private var roomSource: RoomSource? = null
     private var roomEdit = false
+    private var listOpen = false
+    private var lastMoveMs = 0L
     private var realFloorY: Float? = null
     private var realCeilingY: Float? = null
     /** The user changed the height: a ceiling detected later does not override it. */
@@ -258,6 +260,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             FireEvent.RoomClicked ->
                 if (room != null && (mode == Mode.HOME || mode == Mode.PLACING)) {
                     roomEdit = true
+                    listOpen = false
                     menuOpen = false
                     selectedId = null
                     FireLog.i("ROOM edit ${room?.label}")
@@ -275,6 +278,23 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                     FireLog.i("ROOM size ${n.label}")
                 }
             is FireEvent.RoomMoved -> room?.let { r -> applyRoom(r.moved(headForward, event.right, event.ahead, event.turnDeg)) }
+            FireEvent.MuteToggled -> {
+                settings = settings.copy(muted = !settings.muted)
+                save()
+                FireLog.i("SOUND muted=${settings.muted}")
+            }
+            FireEvent.ListClicked ->
+                if (mode == Mode.HOME || mode == Mode.PLACING) {
+                    listOpen = true
+                    roomEdit = false
+                    menuOpen = false
+                    selectedId = null
+                    FireLog.i("LIST open n=${markers.count { it.found }}")
+                }
+            FireEvent.ListClosed -> listOpen = false
+            is FireEvent.MarkerToFront -> moveToFront(event.id)
+            is FireEvent.MarkerDeleted -> deleteMarker(event.id)
+            is FireEvent.MarkerMoved -> planeTracker.get(event.planeId)?.let { moveMarkerTo(event.id, it, event.point) }
             FireEvent.RoomRecentered ->
                 room?.let { r ->
                     applyRoom(RoomBox.around(head ?: Vec3(0f, 1.6f, 0f), headForward, r.width, r.length, r.height, r.floorY))
@@ -672,6 +692,43 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         }
     }
 
+    /** The list's "move to front": 1.5 m ahead of the user, on the floor (a detector on the ceiling). */
+    private fun moveToFront(id: String) {
+        val m = markers.firstOrNull { it.id == id && it.found } ?: return
+        val h = head ?: return
+        val r = room ?: return
+        val f = RoomBox.level(headForward)
+        val target = h + f * FRONT_M
+        val onCeiling = m.kind == MarkerKind.DETECTOR
+        val plane = planeTracker.get(if (onCeiling) RoomBox.ID_CEILING else RoomBox.ID_FLOOR) ?: return
+        moveMarkerTo(id, plane, Vec3(target.x, if (onCeiling) r.ceilingY else r.floorY, target.z))
+    }
+
+    /** Moves a placed marker to where the placement rules put [point] on [plane]; its anchor is made anew. */
+    private fun moveMarkerTo(id: String, plane: PlaneSurface, point: Vec3) {
+        val i = markers.indexOfFirst { it.id == id && it.found }
+        if (i < 0 || mode == Mode.DRILL) return
+        val old = markers[i]
+        val r = room
+        val out = placeRule.place(id, old.kind, plane, point, head ?: point, planeTracker.all, r?.floorY ?: floorY, r?.ceilingY ?: (floorY + RoomBox.DEFAULT_H))
+        val placed = (out as? PlaceMarkerUseCase.Outcome.Place)?.marker ?: return
+        old.anchorId?.let { uuid -> viewModelScope.launch { anchors.remove(uuid) } }
+        markers[i] = old.copy(position = placed.position, onTable = placed.onTable, onCeiling = placed.onCeiling, belowCeilingM = placed.belowCeilingM, wallDistM = placed.wallDistM, anchorId = null, offset = Vec3.ZERO, saved = false)
+        markersDirty = true
+        // a route starts at the fire spot and ends at its exit: moving either makes it stale
+        if (old.kind == MarkerKind.FIRE && routes.isNotEmpty()) {
+            routes.clear()
+            routesDirty = true
+        } else if (old.kind == MarkerKind.EXIT && routes.remove(id) != null) {
+            routesDirty = true
+        }
+        lastMoveMs = SystemClock.elapsedRealtime()
+        FireLog.i("MARKER move id=$id kind=${old.kind.tag} pos=${FireLog.pos(placed.position)} plane=${plane.label}")
+        emit(FireUiEffect.Sound(SoundKind.PLACE))
+        save()
+        createAnchor(id)
+    }
+
     private fun deleteMarker(id: String) {
         val m = markers.firstOrNull { it.id == id } ?: return
         markers.remove(m)
@@ -711,6 +768,8 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             menuOpen = false
             return
         }
+        // the system tap that ends a controller drag is not a selection
+        if (SystemClock.elapsedRealtime() - lastMoveMs < MOVE_TAP_GRACE_MS) return
         if (mode != Mode.PLACING || dialog != null) return
         selectedId = if (selectedId == id) null else id
     }
@@ -728,6 +787,10 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         if (roomEdit) {
             roomEdit = false
             save()
+            return
+        }
+        if (listOpen) {
+            listOpen = false
             return
         }
         when (mode) {
@@ -849,6 +912,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
                 }
         val d = Drill(scenario)
         roomEdit = false
+        listOpen = false
         d.alarmMarkerId = visible(MarkerKind.DETECTOR).minByOrNull { horizontal(it.position, fire.position) }?.id
         drill = d
         rearmFar()
@@ -1170,7 +1234,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         when (mode) {
             Mode.ROUTE_RECORDING -> routeStep(pos)
             Mode.DRILL -> drillHead(pos)
-            else -> Unit
+            else -> if (listOpen) publish()
         }
     }
 
@@ -1374,6 +1438,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         if (name != "S01") clearSnack(SnackKind.SCANNING)
         if (name != "M2") clearSnack(SnackKind.LOST)
         roomEdit = false
+        listOpen = false
         selectedId = null
         routeRec = null
         fun ensureSeed() {
@@ -1387,6 +1452,11 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             "S00" -> {
                 forcedMode = Mode.STARTING
                 mode = Mode.STARTING
+            }
+            "LIST" -> {
+                if (fireMarker() == null) seed()
+                mode = Mode.PLACING
+                listOpen = true
             }
             "ROOM" -> {
                 if (room == null) createRoom()
@@ -1565,6 +1635,7 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
     private fun foot(p: Vec3): Vec3 = Vec3(p.x, floorY, p.z)
 
     private fun emit(effect: FireUiEffect) {
+        if (effect is FireUiEffect.Sound && settings.muted) return
         _effects.tryEmit(effect)
     }
 
@@ -1703,6 +1774,9 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
             roomSource = roomSource,
             ceilingScanned = realCeilingY != null,
             roomEdit = roomEdit && (mode == Mode.HOME || mode == Mode.PLACING),
+            muted = settings.muted,
+            listOpen = listOpen && !roomEdit && (mode == Mode.HOME || mode == Mode.PLACING),
+            headAt = if (listOpen) head?.let { Vec3(Math.round(it.x * 10f) / 10f, 0f, Math.round(it.z * 10f) / 10f) } else null,
         )
     }
 
@@ -1740,6 +1814,8 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         s.result?.let { r -> o.put("result", JSONObject().put("total", r.totalS.toDouble()).put("findings", JSONArray(r.findings.map { it.name })).put("prev", r.prevS?.toDouble())) }
         s.routeRec?.let { r -> o.put("routeRec", JSONObject().put("phase", r.phase.name).put("walked", r.walkedM.toDouble()).put("points", r.points.size)) }
         room?.let { r -> o.put("room", JSONObject().put("source", roomSource?.name).put("w", r.width.toDouble()).put("l", r.length.toDouble()).put("h", r.height.toDouble()).put("floorY", r.floorY.toDouble()).put("yaw", r.yawDeg.toDouble()).put("cx", r.center.x.toDouble()).put("cz", r.center.z.toDouble()).put("edit", roomEdit)) }
+        o.put("muted", settings.muted)
+        o.put("list", s.listOpen)
         head?.let { h -> o.put("head", JSONArray().put(h.x.toDouble()).put(h.y.toDouble()).put(h.z.toDouble())) }
         return o.toString()
     }
@@ -1761,6 +1837,8 @@ class FireViewModel(private val appContext: Context) : ViewModel() {
         private const val SCAN_TIMEOUT_MS = 5_000L
         private const val ADOPT_EPS_M = 0.02f
         private const val OUTSIDE_MAX_M = 12f
+        private const val FRONT_M = 1.5f
+        private const val MOVE_TAP_GRACE_MS = 400L
         private val DRILL_STATES = setOf("S11", "S12", "S13", "S14", "S15", "S15+M1", "S16", "S17", "S19", "M1")
 
         fun horizontal(a: Vec3, b: Vec3): Float = hypot(a.x - b.x, a.z - b.z)

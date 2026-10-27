@@ -99,7 +99,8 @@ object SessionJsonCodec {
                 .put("coachSeen", s.settings.coachSeen)
                 .put("roomW", s.settings.roomW.toDouble())
                 .put("roomL", s.settings.roomL.toDouble())
-                .put("roomH", s.settings.roomH.toDouble()),
+                .put("roomH", s.settings.roomH.toDouble())
+                .put("muted", s.settings.muted),
         )
         return root.toString()
     }
@@ -151,6 +152,7 @@ object SessionJsonCodec {
                 roomW = st.optDouble("roomW", RoomBox.DEFAULT_W.toDouble()).toFloat().coerceIn(RoomBox.MIN_W, RoomBox.MAX_W),
                 roomL = st.optDouble("roomL", RoomBox.DEFAULT_L.toDouble()).toFloat().coerceIn(RoomBox.MIN_L, RoomBox.MAX_L),
                 roomH = st.optDouble("roomH", RoomBox.DEFAULT_H.toDouble()).toFloat().coerceIn(RoomBox.MIN_H, RoomBox.MAX_H),
+                muted = st.optBoolean("muted", false),
             )
         return StoredSession(markers, routes, records, settings)
     }

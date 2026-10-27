@@ -17,8 +17,12 @@ import com.pico.spatial.ui.foundation.content.SpatialViewAttachments
 import com.pico.spatial.ui.foundation.gesture.SpatialDragValue
 import com.pico.spatial.ui.foundation.gesture.SpatialTapValue
 import com.pico.spatial.ui.geometry.Offset3D
+import io.embodit.fireplan.domain.model.DrillRules
 import io.embodit.fireplan.domain.model.MarkerKind
 import io.embodit.fireplan.domain.model.PointerRay
+import io.embodit.fireplan.domain.model.SurfaceHit
+import io.embodit.fireplan.domain.usecase.HitSurfaceUseCase
+import io.embodit.fireplan.domain.usecase.PlaceMarkerUseCase
 import io.embodit.fireplan.domain.model.Vec3
 import io.embodit.fireplan.platform.FireGraph
 import io.embodit.fireplan.platform.FireLog
@@ -90,6 +94,18 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
     private var prop: ExtinguisherView? = null
     private var routes: RouteView? = null
     private var roomView: RoomView? = null
+    private var ghost: GhostView? = null
+    private val hits = HitSurfaceUseCase()
+    private val placeRule = PlaceMarkerUseCase()
+
+    // controller ray while setting up (v0.1.1): the dragged marker, the last surface it was over, trigger edge
+    private var dragId: String? = null
+    private var dragHit: SurfaceHit? = null
+    private var rayWasDown = false
+
+    /** Debug `ray` / `trigger`: stands in for the controller (the emulator's eye mode has none). */
+    private var debugRay: PointerRay? = null
+    private var debugDown = false
     private var alarmSource: Entity? = null
     private var attached = false
     private var attachedAtMs = 0L
@@ -123,6 +139,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
     private var ctrlWasPressed = false
     private var alarmKey = ""
     private var alarmLow = false
+    private var alarmMuted = false
     private var alarmPaused = false
     private var extinguished = false
     private var fpsOn = false
@@ -206,6 +223,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         routes = RouteView(root, m, sh).also { it.prepare() }
         yield()
         roomView = RoomView(root, m, sh).also { it.prepare() }
+        ghost = GhostView(root, m, sh).also { it.prepare() }
         yield()
         flame = FlameView(root, m, sh).also { it.prepare() }
         yield()
@@ -249,6 +267,9 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         markers?.clear()
         routes?.clear()
         roomView?.clear()
+        ghost?.destroy()
+        dragId = null
+        dragHit = null
         flame?.destroy()
         prop?.destroy()
         colliders?.clear()
@@ -268,6 +289,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         prop = null
         routes = null
         roomView = null
+        ghost = null
         alarmSource = null
         hasHead = false
         lastPlaneCount = -1
@@ -357,14 +379,18 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
                 alarmKey = key
                 val at = d.alarmMarkerId?.let { id -> markers?.position(id) } ?: fireMarker.position
                 alarmSource?.setLocal(position = at)
+                // the volume is set before every start: a muted drill must not leave the next one silent
+                alarm.setVolume(if (state.muted) 0f else DrillRules.ALARM_VOLUME)
                 alarmSource?.let { alarm.start(it) }
                 alarmLow = false
+                alarmMuted = state.muted
                 alarmPaused = false
             }
             val low = d.phase != DrillPhase.FIRE
-            if (low != alarmLow) {
+            if (low != alarmLow || state.muted != alarmMuted) {
                 alarmLow = low
-                alarm.setVolume(if (low) io.embodit.fireplan.domain.model.DrillRules.ALARM_LOW_VOLUME else 1f)
+                alarmMuted = state.muted
+                alarm.setVolume(if (state.muted) 0f else if (low) DrillRules.ALARM_LOW_VOLUME else DrillRules.ALARM_VOLUME)
             }
             if (d.paused != alarmPaused) {
                 alarmPaused = d.paused
@@ -450,6 +476,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         previewFrame(state, now)
         placeStrips(state, rig)
         sampleController(state, now)
+        rayFrame(state)
         if (hasHead && now - lastHeadSentMs >= HEAD_SAMPLE_MS) {
             lastHeadSentMs = now
             sink(FireEvent.HeadSample(head.position, head.forward))
@@ -537,6 +564,73 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         var to = Vec3(f.x - head.position.x, 0f, f.z - head.position.z)
         if (to.length < 1e-3f) to = Vec3.AHEAD
         return Vec3.UP.cross(to.normalized()).normalized()
+    }
+
+    /**
+     * The controller ray while setting up (v0.1.1, taste profile D1 / D14). Pointing at a marker's plate and holding
+     * the trigger drags it: it follows where the ray meets the room (through the placement rules) and is put down on
+     * release. Otherwise a see-through preview of the selected kind follows the ray; the trigger / pinch then places
+     * it through the system tap, as before.
+     */
+    private fun rayFrame(state: FireUiState) {
+        val placing = state.mode == Mode.PLACING && !state.menuOpen && state.dialog == null && !state.roomEdit
+        val sample = if (debugRay != null) null else controller.sample()
+        val ray = debugRay ?: sample?.ray
+        val down = if (debugRay != null) debugDown else sample?.let { it.pressed || it.trigger > TRIGGER_DOWN } ?: false
+        val room = state.room
+        if (!placing || ray == null || room == null) {
+            if (dragId != null) {
+                FireLog.i("DRAG marker cancel id=$dragId")
+                dragId = null
+                dragHit = null
+                markers?.sync(state.markers, state.selectedId)
+            }
+            ghost?.hide()
+            rayWasDown = down
+            return
+        }
+        val hit = hits.nearest(planeTracker.all, ray.origin, ray.direction)
+        val id = dragId
+        if (id != null) {
+            val kind = state.markers.firstOrNull { it.id == id }?.kind
+            if (down) {
+                if (hit != null && kind != null) {
+                    val out = placeRule.place(id, kind, hit.plane, hit.point, head.position, planeTracker.all, room.floorY, room.ceilingY)
+                    (out as? PlaceMarkerUseCase.Outcome.Place)?.let {
+                        markers?.moveTo(id, it.marker.position)
+                        dragHit = hit
+                    }
+                }
+            } else {
+                val last = dragHit
+                dragId = null
+                dragHit = null
+                FireLog.i("DRAG marker end id=$id at=${last?.let { FireLog.pos(it.point) } ?: "-"}")
+                if (last != null) sink(FireEvent.MarkerMoved(id, last.plane.id, last.point)) else markers?.sync(state.markers, state.selectedId)
+            }
+            ghost?.hide()
+            rayWasDown = down
+            return
+        }
+        if (down && !rayWasDown) {
+            val picked = markers?.pick(ray.origin, ray.direction)
+            if (picked != null) {
+                dragId = picked
+                FireLog.i("DRAG marker start id=$picked")
+                ghost?.hide()
+                rayWasDown = down
+                return
+            }
+        }
+        rayWasDown = down
+        val kind = state.placeKind
+        if (kind == null || state.full(kind) || hit == null || state.selectedId != null) {
+            ghost?.hide()
+            return
+        }
+        val out = placeRule.place("ghost", kind, hit.plane, hit.point, head.position, planeTracker.all, room.floorY, room.ceilingY)
+        val m = (out as? PlaceMarkerUseCase.Outcome.Place)?.marker
+        if (m == null) ghost?.hide() else ghost?.show(kind, m.position, m.kind == MarkerKind.DETECTOR && m.onCeiling)
     }
 
     /** Controller ray: aiming at the base ring / the flames, trigger = squeeze, moving the ray = sweep. */
@@ -750,6 +844,13 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         return "FOLLOW main park requested"
     }
 
+    override fun setDebugRay(origin: Vec3?, direction: Vec3?, down: Boolean?): String {
+        if (origin != null && direction != null && direction.length > 1e-3f) debugRay = PointerRay(origin, direction.normalized())
+        if (origin == null && direction == null && down == null) debugRay = null
+        if (down != null) debugDown = down
+        return "RAY ${debugRay?.let { "${FireLog.pos(it.origin)} -> ${FireLog.pos(it.direction)}" } ?: "off"} down=$debugDown drag=${dragId ?: "-"}"
+    }
+
     override fun setFpsLine(on: Boolean): String {
         fpsOn = on
         frames = 0
@@ -765,6 +866,7 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         private const val REBIND_DELAY_MS = 150L
         private const val PLANES_EMIT_MS = 500L
         private const val PREVIEW_STEP_MS = 120L
+        private const val TRIGGER_DOWN = 0.6f
         private const val HEAD_SAMPLE_MS = 100L
         private const val PANEL_HOLD_MS = 600L
         private const val COACH_GAP_M = 0.03f

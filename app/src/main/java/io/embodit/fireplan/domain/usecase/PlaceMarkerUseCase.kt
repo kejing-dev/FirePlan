@@ -15,7 +15,8 @@ import io.embodit.fireplan.domain.model.Vec3
  * - extinguisher, exit: the floor (a wall or door = its foot, 0.3 m into the room);
  * - detector: the ceiling (above the point). A wall pointed at within 0.6 m of the ceiling takes a
  *   wall-mounted detector; lower on a wall it goes on the ceiling 0.6 m in from that wall.
- * [floorY] / [ceilingY] are the room's.
+ * [floorY] / [ceilingY] are the room's. A floor marker never lands within 0.6 m (level) of the head: it is
+ * pushed out along the head -> point direction (taste profile D14, a pole must not stand in the user).
  */
 class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = DetectorCheckUseCase()) {
 
@@ -37,8 +38,8 @@ class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = Detec
     ): Outcome {
         val vertical = plane.kind == SurfaceKind.WALL || plane.kind == SurfaceKind.DOOR || (!plane.horizontal && plane.kind != SurfaceKind.FLOOR && plane.kind != SurfaceKind.CEILING)
         val inward = if (vertical) inwardOf(plane, point, head) ?: return Outcome.Refused else null
-        fun floorBelow() = Vec3(point.x, floorY, point.z)
-        fun wallFoot(offset: Float) = Vec3(point.x, floorY, point.z) + inward!! * offset
+        fun floorBelow() = clear(Vec3(point.x, floorY, point.z), head)
+        fun wallFoot(offset: Float) = clear(Vec3(point.x, floorY, point.z) + inward!! * offset, head)
         return when (kind) {
             MarkerKind.FIRE ->
                 when {
@@ -86,6 +87,15 @@ class PlaceMarkerUseCase(private val detectorCheck: DetectorCheckUseCase = Detec
 
     companion object {
         const val DOOR_OFFSET_M = 0.3f
+        const val HEAD_CLEAR_M = 0.6f
+
+        /** [p] pushed out to [HEAD_CLEAR_M] (level distance) from [head]; straight ahead of nothing = along -Z. */
+        fun clear(p: Vec3, head: Vec3): Vec3 {
+            val d = Vec3(p.x - head.x, 0f, p.z - head.z)
+            if (d.length >= HEAD_CLEAR_M) return p
+            val dir = if (d.length < 1e-3f) Vec3.AHEAD else d.normalized()
+            return Vec3(head.x + dir.x * HEAD_CLEAR_M, p.y, head.z + dir.z * HEAD_CLEAR_M)
+        }
         const val WALL_MOUNT_ZONE_M = 0.6f
         const val DETECTOR_IN_FROM_WALL_M = 0.6f
 

@@ -1,6 +1,8 @@
 package io.embodit.fireplan.ui.fire.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,6 +44,8 @@ internal fun DrillCard(state: FireUiState, filled: Boolean, onEvent: (FireEvent)
                 textAlign = if (countdown) TextAlign.Center else TextAlign.Start,
                 modifier = Modifier.weight(1f),
             )
+            MuteKey(state, onEvent)
+            Spacer(modifier = Modifier.width(8.dp))
             Key("pause", R.drawable.ic_pause, rs(R.string.action_pause), enabled = !d.paused) { onEvent(FireEvent.PauseClicked) }
         }
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

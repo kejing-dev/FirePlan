@@ -140,4 +140,9 @@
     <string name="snack_room_scanned">扫到地面 · 房间已贴上</string>
     <string name="route_auto">原地画路线</string>
     <string name="route_or_draw">不想走？原地画一条直线路线</string>
+    <string name="action_mute">关闭声音</string>
+    <string name="action_unmute">打开声音</string>
+    <string name="action_list">已放的点</string>
+    <string name="action_to_front">挪到我面前</string>
+    <string name="list_title">已放 · %d 个</string>
 </resources>

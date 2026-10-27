@@ -159,4 +159,9 @@
     <string name="snack_room_scanned">Floor found · room set on it</string>
     <string name="route_auto">Draw it from here</string>
     <string name="route_or_draw">Or draw a straight route without walking</string>
+    <string name="action_mute">Sound off</string>
+    <string name="action_unmute">Sound on</string>
+    <string name="action_list">Placed points</string>
+    <string name="action_to_front">Move in front of me</string>
+    <string name="list_title">Placed · %d</string>
 </resources>

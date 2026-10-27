@@ -61,6 +61,9 @@ object FireProbe {
         fun parkPanel(): String
 
         fun setFpsLine(on: Boolean): String
+
+        /** Debug `ray` / `trigger`: a stand-in controller ray (null origin and direction and down = off). */
+        fun setDebugRay(origin: io.embodit.fireplan.domain.model.Vec3?, direction: io.embodit.fireplan.domain.model.Vec3?, down: Boolean?): String
     }
 
     @Volatile var host: Host? = null

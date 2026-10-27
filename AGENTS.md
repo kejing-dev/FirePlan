@@ -50,8 +50,21 @@ virtual room) and B17 (as little walking as possible):
   card of a ceiling detector hang at eye height straight below it (`FireScene.placeStrips`, taste D10) instead of
   up at the ceiling; the `seed` extinguisher moved to 35 degrees right so its plate no longer sits behind the fire
   spot's. Audit list and shots: `../spatial-app-factory/apps/fire-plan/build/ui-audit.md`.
+- Sound, moving and listing markers (factory audit 2026-10-26, taste D15 / D14 / D1):
+  - A sound key on the home panel and on the drill card mutes the alarm and every effect (`Settings.muted`, kept).
+    The alarm is softer by default: 2.6 kHz at 0.45 amplitude with 40 ms fades, played at 0.4 (0.15 once the user
+    acts); it was 3.1 kHz at 0.6 played at 1.0. The volume is set before every start (a muted drill must not leave
+    the next one silent).
+  - Floor markers never land within 0.6 m (level) of the head (`PlaceMarkerUseCase.clear`).
+  - Controller ray while setting up (`FireScene.rayFrame`): a see-through preview of the selected kind follows where
+    the ray meets the room (`GhostView`, the placement rules applied); pointing at a marker's plate (within 0.15 m)
+    and holding the trigger drags it, release = `MarkerMoved` -> placement rules, new anchor. Moving the fire spot
+    clears the routes, moving an exit clears its route. The trigger / pinch still places through the system tap.
+  - The tray's list key opens the marker list in the main panel (state name `LIST`): one row per marker with its
+    distance, "move in front of me" (1.5 m ahead; a detector on the ceiling above that) and delete.
 - QA hooks added: `noscan on|off` (on = ignore detection and drop the room: S01, then the virtual room after 5 s), `scan_timeout`, `room [w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done]`,
-  `state ROOM`, `tap x,y,z` (a pinch on the room surface at that Stage point), and `ui` controls
+  `state ROOM`, `state LIST`, `mute`, `list` / `list off`, `tofront <id>`, `ray ox,oy,oz,dx,dy,dz` / `ray off`
+  and `trigger on|off` (a stand-in controller ray: preview, pick a plate, drag, release), `tap x,y,z` (a pinch on the room surface at that Stage point), and `ui` controls
   `room`, `tray_room`, `room_*`, `route_auto`, `snackbar_room`. `dump` has a `room` object.
 - Headset install note: v0.1.0 on the headset was signed on another machine (debug keystore differs),
   so `install -r` fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. The station backed up

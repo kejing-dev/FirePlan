@@ -82,6 +82,8 @@ data class Settings(
     val roomW: Float = RoomBox.DEFAULT_W,
     val roomL: Float = RoomBox.DEFAULT_L,
     val roomH: Float = RoomBox.DEFAULT_H,
+    /** v0.1.1 (taste profile D15): every sound off, kept between launches. */
+    val muted: Boolean = false,
 )
 
 /** One finished drill (the last five are kept). */
@@ -131,8 +133,12 @@ object DrillRules {
     const val COUNTDOWN_S = 3f
     const val TWO_MINUTES_S = 120f
 
-    /** The alarm drops to this volume once the extinguisher is in hand or the evacuation has started. */
-    const val ALARM_LOW_VOLUME = 0.4f
+    /**
+     * Alarm volume (v0.1.1, taste profile D15: not loud by default; it was 1.0) and the lower level it drops to once
+     * the extinguisher is in hand or the evacuation has started.
+     */
+    const val ALARM_VOLUME = 0.4f
+    const val ALARM_LOW_VOLUME = 0.15f
 
     /** The first-hint line ("fire! fight it or get out?") stays this long before "get the extinguisher". */
     const val FIRST_HINT_S = 5f

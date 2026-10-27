@@ -50,6 +50,9 @@ import java.util.Locale
  * - `noscan on|off`             ignore plane detection (the nothing-detected path); `scan_timeout` fires the 5 s timeout now
  * - `room`                      opens the room card; `room w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done`
  * - `tap <x,y,z>`               a pinch on the room / table surface nearest to that Stage point (as the system pointer would)
+ * - `mute` (toggles), `list` / `list off`, `tofront <marker id>`
+ * - `ray ox,oy,oz,dx,dy,dz` / `ray off` and `trigger on|off`: a stand-in controller ray and trigger (preview ghost,
+ *   pick a plate and drag it, release = put down), for the emulator's eye mode that has no controller
  * - `ui <control>` also knows room, tray_room, room_back, room_recenter, room_w_minus / _plus, room_l_*, room_h_*,
  *   room_turn_a / _b, room_side_a / _b, room_depth_a / _b, route_auto, snackbar_room
  */
@@ -116,6 +119,15 @@ internal object DebugCommands {
             "clear_now" -> host.dispatch(FireEvent.DebugClear)
             "exit" -> host.dispatch(FireEvent.ExitClicked)
             "ui" -> FireLog.i("UI $text pressed=${host.pressControl(text)}")
+            "mute" -> host.dispatch(FireEvent.MuteToggled)
+            "list" -> host.dispatch(if (word == "off" || word == "close") FireEvent.ListClosed else FireEvent.ListClicked)
+            "tofront" -> host.dispatch(FireEvent.MarkerToFront(word))
+            "ray" -> {
+                // `ray ox,oy,oz,dx,dy,dz` stands in for the controller ray; `ray off` gives it back
+                val r = if (word == "off" || numbers.size < 6) scene?.setDebugRay(null, null, null) else scene?.setDebugRay(Vec3(numbers[0], numbers[1], numbers[2]), Vec3(numbers[3], numbers[4], numbers[5]), null)
+                FireLog.i(r ?: NO_SCENE)
+            }
+            "trigger" -> FireLog.i(scene?.setDebugRay(null, Vec3.ZERO, word != "off" && word != "up") ?: NO_SCENE)
             "noscan" -> host.dispatch(FireEvent.DebugNoScan(word != "off"))
             "scan_timeout" -> host.dispatch(FireEvent.DebugScanTimeout)
             "room" -> {

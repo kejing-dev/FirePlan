@@ -165,6 +165,12 @@ data class FireUiState(
     val roomSource: RoomSource? = null,
     val ceilingScanned: Boolean = false,
     val roomEdit: Boolean = false,
+    /** v0.1.1 (taste profile D15): all sound off. */
+    val muted: Boolean = false,
+    /** v0.1.1 (taste profile D14): the main panel lists the placed markers (move to front / delete). */
+    val listOpen: Boolean = false,
+    /** The head while the list is open (its distances), else null so that head samples do not recompose. */
+    val headAt: Vec3? = null,
 ) {
     val placedCount: Int
         get() = markers.size
@@ -203,6 +209,7 @@ data class FireUiState(
                     menuOpen -> "S20"
                     d != null && d.paused -> "S19"
                     roomEdit -> "ROOM"
+                    listOpen -> "LIST"
                     else -> baseName
                 }
             val m1 = if (d != null && d.phase == DrillPhase.SWEEP && d.distanceBad != null && !d.paused) "+M1" else ""
@@ -307,6 +314,20 @@ sealed interface FireEvent {
     data class RoomMoved(val right: Float = 0f, val ahead: Float = 0f, val turnDeg: Float = 0f) : FireEvent
 
     data object RoomRecentered : FireEvent
+
+    // sound and the marker list (v0.1.1)
+    data object MuteToggled : FireEvent
+
+    data object ListClicked : FireEvent
+
+    data object ListClosed : FireEvent
+
+    data class MarkerToFront(val id: String) : FireEvent
+
+    data class MarkerDeleted(val id: String) : FireEvent
+
+    /** A marker dragged with the controller ray and let go over [planeId] at [point] (taste profile D1 / D14). */
+    data class MarkerMoved(val id: String, val planeId: String, val point: Vec3) : FireEvent
 
     data object DeleteMarkerClicked : FireEvent
 
