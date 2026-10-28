@@ -50,6 +50,7 @@ import java.util.Locale
  * - `noscan on|off`             ignore plane detection (the nothing-detected path); `scan_timeout` fires the 5 s timeout now
  * - `room`                      opens the room card; `room w+|w-|l+|l-|h+|h-|turn+|turn-|left|right|away|closer|recenter|done`
  * - `tap <x,y,z>`               a pinch on the room / table surface nearest to that Stage point (as the system pointer would)
+ * - `platetest on|off`         every marker plate shows an asymmetric "F" + up arrow (texture orientation check, v0.1.2)
  * - `mute` (toggles), `list` / `list off`, `tofront <marker id>`
  * - `ray ox,oy,oz,dx,dy,dz` / `ray off` and `trigger on|off`: a stand-in controller ray and trigger (preview ghost,
  *   pick a plate and drag it, release = put down), for the emulator's eye mode that has no controller
@@ -119,6 +120,7 @@ internal object DebugCommands {
             "clear_now" -> host.dispatch(FireEvent.DebugClear)
             "exit" -> host.dispatch(FireEvent.ExitClicked)
             "ui" -> FireLog.i("UI $text pressed=${host.pressControl(text)}")
+            "platetest" -> FireLog.i(scene?.setPlateTest(word != "off") ?: NO_SCENE)
             "mute" -> host.dispatch(FireEvent.MuteToggled)
             "list" -> host.dispatch(if (word == "off" || word == "close") FireEvent.ListClosed else FireEvent.ListClicked)
             "tofront" -> host.dispatch(FireEvent.MarkerToFront(word))

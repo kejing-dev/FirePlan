@@ -63,6 +63,9 @@ object FireProbe {
         fun setFpsLine(on: Boolean): String
 
         /** Debug `ray` / `trigger`: a stand-in controller ray (null origin and direction and down = off). */
+        /** Debug `platetest on|off`: asymmetric "F" + arrow on every marker plate (texture orientation check). */
+        fun setPlateTest(on: Boolean): String
+
         fun setDebugRay(origin: io.embodit.fireplan.domain.model.Vec3?, direction: io.embodit.fireplan.domain.model.Vec3?, down: Boolean?): String
     }
 

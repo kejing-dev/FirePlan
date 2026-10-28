@@ -26,6 +26,7 @@ import com.pico.spatial.core.math.Vector2
 import com.pico.spatial.core.math.Vector3
 import io.embodit.fireplan.domain.model.Quat4
 import io.embodit.fireplan.domain.model.Vec3
+import io.embodit.fireplan.domain.usecase.PlateUv
 import io.embodit.fireplan.platform.FireLog
 import io.embodit.fireplan.ui.theme.FireColors
 import kotlin.math.PI
@@ -228,7 +229,8 @@ internal object MeshFactory {
 
     /**
      * Disc in the local XY plane facing +Z with texture coordinates that map the unit square onto it:
-     * the icon plates (the texture's circle fills the disc exactly, no transparency needed).
+     * the icon plates (the texture's circle fills the disc exactly, no transparency needed). UVs from
+     * [PlateUv.uv] (v = 1 on top: the engine samples v = 0 from the bitmap's bottom row; v0.1.2 fix).
      */
     fun discUv(radius: Float, name: String, segments: Int = 40): MeshResource {
         val positions = ArrayList<Vector3>(segments + 1)
@@ -244,7 +246,8 @@ internal object MeshFactory {
             val y = sin(a).toFloat()
             positions += Vector3(x * radius, y * radius, 0f)
             normals += FRONT
-            uvs += Vector2(0.5f + x * 0.5f, 0.5f - y * 0.5f)
+            val (u, v) = PlateUv.uv(x, y)
+            uvs += Vector2(u, v)
         }
         for (i in 0 until segments) {
             indices += 0

@@ -15,6 +15,14 @@ Built by the factory's build station on 2026-10-25 (v0.1.0, debug) and run on th
 (emulator-5562, AVD Pico_Emulator_6_1_c): every designed state captured through the QA hooks, no crash.
 Not yet run on a headset.
 
+## v0.1.2 (2026-10-27): the marker plates were upside down
+
+Headset feedback "the placed icons are all reversed". `MeshFactory.discUv` gave the disc's top edge v = 0, but the
+engine samples v = 0 from the bitmap's **bottom** row (same finding as Light Planner / Sky Dome), so every plate was
+upside down. UVs now come from `domain/usecase/PlateUv.uv` (v = 1 on top) and plates turn about the vertical only
+(`PlateUv.yawTowards`, no pitch, never mirrored; taste D10). `PlateUvTest` checks the chain. Debug `platetest on`
+puts an asymmetric "F" + up arrow on every plate: check any new 3D texture with it on the emulator before shipping.
+
 ## v0.1.1 (2026-10-26, pc1): the room box, placement anywhere, route without walking
 
 The user tried v0.1.0 in an office: no DOOR / CEILING planes were reported, so the smoke alarm and the

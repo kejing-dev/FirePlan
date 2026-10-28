@@ -844,6 +844,11 @@ class FireScene(private val sink: (FireEvent) -> Unit) : FireProbe.SceneProbe {
         return "FOLLOW main park requested"
     }
 
+    override fun setPlateTest(on: Boolean): String {
+        markers?.testPattern = on
+        return "PLATETEST ${if (on) "on" else "off"} plates=${markers?.count ?: 0}"
+    }
+
     override fun setDebugRay(origin: Vec3?, direction: Vec3?, down: Boolean?): String {
         if (origin != null && direction != null && direction.length > 1e-3f) debugRay = PointerRay(origin, direction.normalized())
         if (origin == null && direction == null && down == null) debugRay = null

@@ -16,6 +16,7 @@ import io.embodit.fireplan.domain.model.MarkerKind
 import io.embodit.fireplan.domain.model.Quat4
 import io.embodit.fireplan.domain.model.Vec3
 import io.embodit.fireplan.domain.usecase.FacePanelUseCase
+import io.embodit.fireplan.domain.usecase.PlateUv
 import io.embodit.fireplan.platform.FireLog
 import io.embodit.fireplan.ui.fire.MarkerUi
 import io.embodit.fireplan.ui.theme.FireColors
@@ -222,13 +223,27 @@ internal class MarkerViews(
     }
 
     /** Every plate turns towards the head (yaw and pitch, no roll). */
+    /** Plates turn about the vertical only, front to the head, never pitched or mirrored (v0.1.2, taste profile D10). */
     fun onFrame(head: Vec3) {
         for (v in views.values) {
-            val f = facing.facing(v.platePos, head, v.lastYaw)
-            v.lastYaw = f.yaw
-            v.plate.setLocal(rotation = f.rotation)
+            val (rotation, yaw) = PlateUv.yawTowards(v.platePos, head, v.lastYaw)
+            if (v.lastYaw != null && kotlin.math.abs(yaw - v.lastYaw!!) < 1e-4f) continue
+            v.lastYaw = yaw
+            v.plate.setLocal(rotation = rotation)
         }
     }
+
+    /**
+     * Debug `platetest on`: every plate shows "F" with an arrow up, which is wrong-looking under any mirror or flip,
+     * to check the texture orientation on the device (v0.1.2). Off = the icons again.
+     */
+    var testPattern = false
+        set(value) {
+            if (field == value) return
+            field = value
+            plateMaterials.clear()
+            for (v in views.values) v.plate.setMaterial(plateMaterial(v.kind, v.exitIndex, alarm = v.alarmOn))
+        }
 
     fun clear() {
         views.values.forEach { runCatching { it.group.destroy(true) } }
@@ -266,6 +281,15 @@ internal class MarkerViews(
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             canvas.drawColor(fill.toArgb())
+            if (testPattern) {
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                paint.color = ink.toArgb()
+                paint.typeface = Typeface.DEFAULT_BOLD
+                paint.textSize = size * 0.56f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("F↑", size * 0.5f, size * 0.70f, paint)
+                return bitmap
+            }
             val res =
                 when (kind) {
                     MarkerKind.FIRE -> R.drawable.mk_fire
