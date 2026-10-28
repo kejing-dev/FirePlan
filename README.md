@@ -2,18 +2,16 @@
 
 # Fire Plan | 家庭火情预案
 
-**在你家标出灶台、灭火器、出口和烟感，自己走一遍逃生路线；灶台起一团小火，扑得灭就拔销瞄根压把扫，火大了沿绿点出门——看你家两分钟够不够。**
+**在自己家里标出灶台、灭火器、出口和烟感，原地画好逃生路线，再来一场两分钟火情演练：扑得灭就拔销、瞄根、压把、扫，火大了沿绿色路线出门。**
 
-**Mark the stove, extinguishers, exits and smoke alarms in your own home and walk your escape route once. Then a small fire starts by the stove: put it out with Pull-Aim-Squeeze-Sweep, or, if it grows, follow your own green dots to the door — and see whether two minutes is enough.**
+**Mark the stove, extinguishers, exits and smoke alarms in your own home, draw your escape route without walking it, then run a two-minute fire drill: put the fire out with Pull-Aim-Squeeze-Sweep, or, if it grows, follow your green route out.**
 
-PICO OS 6 · PICO Spatial SDK 6.1.9 · Kotlin / SpatialUI · package `io.embodit.fireplan` · v0.1.0 (pre-release / 预发布)
+PICO OS 6 · PICO Spatial SDK 6.1.9 · Kotlin / SpatialUI · package `io.embodit.fireplan` · **v0.1.2**
 
-> **模拟器 QA 通过，真机未验证（Simulator-QA passed; not yet verified on a real headset）。**
+![海报 / Poster](docs/poster.jpg)
 
-![封面：灶台旁起火，最近的烟感闪黄，计时小卡问「扑还是走？」](docs/cover-S12-fire.jpg)
-
-> 截图和演示视频来自原生模拟器（PICO Emulator 6.1），由调试广播驱动跳转到各设计状态；**非真实手势录像**。
-> Screenshots and the demo video were taken on the native PICO emulator, driven by debug broadcasts that jump to each design state; **not a recording of real hand gestures.**
+> 截图来自原生模拟器（PICO Emulator 6.1，Graphics High Definition），由调试广播驱动；**非真实手势录像**。
+> Screenshots were taken on the native PICO emulator (Graphics High Definition), driven by debug broadcasts; **not a recording of real hand gestures.**
 
 ---
 
@@ -21,50 +19,43 @@ PICO OS 6 · PICO Spatial SDK 6.1.9 · Kotlin / SpatialUI · package `io.embodit
 
 ### 这是什么
 
-家里的火情预案：起火了先干什么、灭火器在哪、从哪扇门出去、要多久。第一次花 10 分钟，在真实的灶台、门口、天花板上放 4 种标点（起火点、灭火器 ≤ 3、出口 ≤ 2、烟感 ≤ 6），并按平时速度走一遍逃生路线；放下烟感当场检查离墙、离灶台够不够远。之后每次演练 2–3 分钟：倒数后灶台旁起一团小火，警报从你标的烟感位置响起，你决定扑还是走——走到灭火器旁、回到离火 2–3 米拔销、瞄火根、按住喷、左右扫；火长大了就沿你自己走出来的绿点出门。复盘告诉你总用时对不对得上两分钟线、每段花了多久、灭火器够不够近、烟感要不要挪。
+家里的火情预案：起火了先做什么、灭火器在哪、从哪扇门出去、要多久。
 
-安全：倒数页提醒「快走别跑 · 到门口就停，不用开门」，透视全程开着，撤离时灭火器道具自动隐藏。全部本机保存，不联网、不需要账号。
+- **布置**：放 4 种标记，分别是起火点、灭火器（最多 3 个）、出口（最多 2 个）、烟感（最多 6 个）。用手柄射线指向地面、墙脚或天花板，会有一个半透明的预览跟着走，扣扳机（或捏合）就放下。放下的烟感当场检查：离墙够不够 0.5 m，离灶台够不够 3 m。
+- **不卡扫描**：只认地面和天花板。5 秒没扫到地面就用一个虚拟房间（默认 5×6×2.7 m），房间卡里可以调长宽高、左右平移、推远拉近、旋转，「围绕我」一键摆回身边。
+- **少走动**：路线卡里「原地画路线」一键画出灶台到出口的直线路线，画好后会有一道绿光沿路线跑一遍。想按平时速度走一遍也可以。
+- **放了也挪得走**：按住扳机就能拖动已放的点。托盘里的列表能把任何一个点「挪到我面前」或删掉。
+- **演练**：倒数之后灶台旁起一团小火，警报从你标的烟感位置响起。扑火就走到灭火器旁，退到离火 2–3 m，拔销、瞄火根、按住、左右扫；火长大了就沿绿色路线出门。
+- **复盘**：总用时对不对得上两分钟线、每段花了多久、灭火器够不够近、哪个烟感要挪。
+- **声音**：警报默认小声、柔和；主面板和演练卡上都有静音键。
+
+安全提示：倒数页会提醒「快走别跑 · 到门口就停，不用开门」，透视全程开着，撤离时灭火器道具自动隐藏。全部数据保存在本机，不联网，不需要账号。
 
 ### 安装与启动
 
 ```bash
-adb install -r FirePlan-v0.1.0.apk
+adb install -r FirePlan-v0.1.2.apk
 pico-cli app launch io.embodit.fireplan
 ```
 
-APK 在 [Releases](https://github.com/kejing-dev/FirePlan/releases) 页面下载（仓库不含 APK）。需要 PICO OS 6 头显或 PICO Emulator 6.1；用到平面识别和空间锚点。APK 约 45 MB（内含完整中文字体）。
-
-### 容器与骨架
-
-- **容器**：只有 Full Space · `STAGE_MIXED`（透视），没有 Shared Space 版本。标点要落在你家真实的灶台和门口、路线要你真的走一遍，依赖平面识别（FLOOR / CEILING / DOOR / TABLE）、头部位姿和世界锚点，这些只在 Full Space 可用。
-- **骨架 D**（同空间尺 Spatial Ruler）：平面识别 + 平面薄盒碰撞、每个标点一个世界锚点、懒跟随主面板、自建对话框 / 提示条面板、面板池、每帧朝向 System、空间音频警报。所有规则（落点、到达判定、PASS 状态机、复盘结论）在纯 Kotlin domain 层。
-- **状态**：设计包 26 个状态（S00–S23、S15+M1、M2），全部可由调试广播直接跳转并截图，结构见 [AGENTS.md](AGENTS.md)。
+APK 在 [Releases](https://github.com/kejing-dev/FirePlan/releases) 页面下载（仓库本身不含 APK）。需要 PICO OS 6 头显或 PICO Emulator 6.1，用到平面识别和空间锚点。APK 约 45 MB，因为内含完整中文字体。
 
 ### 截图
 
 | | |
 |---|---|
-| ![标点盘：四种标点格子与地上的绿点路线](docs/S04-marker-tray.jpg) | ![烟感检查卡：离灶台不足 3 米给出提醒](docs/S05c-detector-check.jpg) |
-| 标点盘 — 4 种标点格子，地上是你录下的绿点路线 | 烟感检查 — 三条检查，离灶台不足 3 m 标橙 |
-| ![拿到灭火器：右下道具、黄色销环和火根圈](docs/S13-extinguisher.jpg) | ![火灭了：绿点全亮，提示仍然出门打 119](docs/S16-fire-out.jpg) |
-| 拿到灭火器 — 右下道具，「回到火前 2–3 米 · 拔销」 | 火灭了 — 「仍然出门 · 打 119」，绿点亮到门口 |
-| ![火太大：大火与「马上出门」](docs/S17-evacuate.jpg) | ![复盘：总用时、分段条、俯视小图与结论](docs/S18-review.jpg) |
-| 火太大 — 25 秒没扑灭火长大，「马上出门」 | 复盘 — 1:42 两分钟内出门，分段用时 + 俯视图 + 结论 |
+| ![把你家标出来](docs/shot-01.jpg) | ![指哪放哪](docs/shot-02.jpg) |
+| ![扫不到也能用](docs/shot-03.jpg) | ![原地画逃生路线](docs/shot-04.jpg) |
+| ![放下了也挪得走](docs/shot-05.jpg) | ![烟感位置检查](docs/shot-06.jpg) |
+| ![两分钟火情演练](docs/shot-07.jpg) | ![复盘](docs/shot-08.jpg) |
 
-启动器图标：
+### 版本
 
-<img src="docs/launcher.jpg" width="480" alt="系统「回到主页」框里的应用图标">
+- **v0.1.2**：放置后标记牌上的图标上下颠倒，已修。原因是引擎取贴图时 v=0 对应位图最底行。牌子现在只绕竖直轴转向你，不俯仰、不镜像。
+- **v0.1.1**（按办公室真机试用反馈）：只认地面和天花板，扫不到就用虚拟房间；烟感和出口随处可放；原地画路线；手柄射线预览与拖动；已放标记列表；静音键，警报改得更小声、更柔和；UI 遮挡全量排查。
+- **v0.1.0**：首版。
 
-### 已知问题（QA 第 1 轮，不影响使用）
-
-- 倒数阶段最近的烟感牌就开始闪黄（设计是起火后才闪、才响）。
-- 瞄准火根时火根圈没有从虚线变成实线（调试注入下看到的；真机用真实指向再核一次）。
-- 火根圈会透过近处的灭火器道具显示出来；同一视角下道具会挡住火焰（模拟器视野窄，真机转头即分开）。
-- 灭火后用调试命令强制跳到「火太大」时火焰不重新出现（真实流程没有这条路径）。
-- 复盘面板、更多菜单、暂停菜单在模拟器上第一次出现要 8–12 秒（模拟器空闲只有 2–4 帧/秒）。
-- 演示视频帧率不稳（约 16 帧/秒），是模拟器限制，不是应用问题。
-
-还没在头显上验过：警报方向感、手柄 / 手势扫射手感、真人走路的路线和锚点漂移、真实家里天花板识别、权限弹窗，以及「人在出口旁先离开门口」那一步。
+真机已装 v0.1.2，还没有真人戴头显完整试过一遍演练（警报方向感、扫射手感、真实走路时的锚点漂移）。
 
 ---
 
@@ -72,39 +63,34 @@ APK 在 [Releases](https://github.com/kejing-dev/FirePlan/releases) 页面下载
 
 ### What it is
 
-A fire plan for your own home: what to do first, where the extinguisher is, which door to leave by, and how long it takes. The first time (about 10 minutes) you place four kinds of markers on your real stove, doors and ceiling — fire spot, extinguishers (≤ 3), exits (≤ 2), smoke alarms (≤ 6) — and walk your escape route at normal pace; each smoke alarm gets an on-the-spot distance check (from walls, from the stove). After that each drill takes 2–3 minutes: after a countdown a small stylised fire starts by the stove, the alarm sounds from the detector you marked, and you decide — fetch the extinguisher, step back to 2–3 m, Pull, Aim at the base, Squeeze and Sweep; or, if the fire grows, follow the green dots you walked yourself to the door. The review shows your total time against the two-minute line, each segment, whether the extinguisher is close enough and which alarms should move.
+A fire plan for your own home: what to do first, where the extinguisher is, which door to leave by, and how long it takes.
+
+- **Set up**: four kinds of markers — fire spot, extinguishers (≤ 3), exits (≤ 2), smoke alarms (≤ 6). Point the controller ray at the floor, the foot of a wall or the ceiling; a see-through preview follows the ray, and the trigger (or a pinch) puts the marker down. Each smoke alarm is checked on the spot: at least 0.5 m from walls and 3 m from the stove.
+- **Never stuck scanning**: only the floor and the ceiling are detected. With no floor after 5 s a virtual room is used (5 × 6 × 2.7 m by default); the room card adjusts its size, slides, pushes, turns it, and puts it back around you.
+- **Little walking**: "Draw it from here" makes a straight route from the fire spot to the exit, and a green light runs along any saved route. You can still walk it at normal pace.
+- **Movable**: hold the trigger on a placed marker to drag it. The tray's list moves any marker in front of you or deletes it.
+- **Drill**: after a countdown a small fire starts by the stove and the alarm sounds from the detector you marked. Fetch the extinguisher, step back to 2–3 m, Pull, Aim at the base, Squeeze, Sweep — or, if the fire grows, follow your green route out.
+- **Review**: total time against the two-minute line, each segment, whether the extinguisher is close enough, which alarms should move.
+- **Sound**: the alarm is quiet and soft by default; a mute key sits on the main panel and on the drill card.
 
 Safety: the countdown says "walk, don't run — stop at the door, don't open it", passthrough stays on throughout, and the extinguisher prop hides while you evacuate. Everything is stored on the device; no network, no account.
 
 ### Install and launch
 
 ```bash
-adb install -r FirePlan-v0.1.0.apk
+adb install -r FirePlan-v0.1.2.apk
 pico-cli app launch io.embodit.fireplan
 ```
 
-Download the APK from the [Releases](https://github.com/kejing-dev/FirePlan/releases) page (the repository itself does not ship an APK). Needs a PICO OS 6 headset or PICO Emulator 6.1; uses plane detection and spatial anchors. The APK is about 45 MB because it bundles the full Chinese font.
+Download the APK from the [Releases](https://github.com/kejing-dev/FirePlan/releases) page. Needs a PICO OS 6 headset or PICO Emulator 6.1; uses plane detection and spatial anchors. The APK is about 45 MB because it bundles the full Chinese font.
 
-### Container and skeleton
+### Versions
 
-- **Container**: Full Space only, `STAGE_MIXED` (passthrough); no Shared Space version. Markers must sit on your real stove and doors and you must actually walk the route, which needs plane detection (FLOOR / CEILING / DOOR / TABLE), head pose and world anchors — all Full Space only.
-- **Skeleton D** (same as Spatial Ruler): plane detection with thin-box plane colliders, one world anchor per marker, lazy-follow main panel, home-made dialog / hint panels, panel pool, per-frame billboarding system, spatial-audio alarm. All rules (placement, arrival, the PASS state machine, review findings) live in a pure Kotlin domain layer.
-- **States**: 26 designed states (S00–S23, S15+M1, M2), each reachable by a debug broadcast and captured; see [AGENTS.md](AGENTS.md).
+- **v0.1.2**: the icon plates on placed markers were upside down (the engine samples texture v = 0 from the bitmap's bottom row). Plates now turn about the vertical only, never pitched or mirrored.
+- **v0.1.1** (office headset feedback): floor and ceiling only, a virtual room when nothing is detected; alarms and exits can be placed anywhere; route drawn without walking; controller-ray preview and drag; marker list; mute key, quieter and softer alarm; full UI occlusion audit.
+- **v0.1.0**: first release.
 
-### Screenshots
-
-See the table above: marker tray with the green route, smoke-alarm check card, extinguisher in hand, fire out, fire too big — evacuate, and the review panel.
-
-### Known issues (QA round 1, none blocking)
-
-- The nearest smoke-alarm plate already flashes yellow during the countdown (design: only after the fire starts).
-- When aiming at the base, the base ring stays dashed instead of turning solid (seen with injected aiming; to be re-checked with real pointing on a headset).
-- The base ring shows through the nearby extinguisher prop, and from the same viewpoint the prop hides the flame (narrow emulator field of view; separates as soon as you turn your head on a headset).
-- Forcing "fire too big" by debug command after the fire is out does not bring the flame back (not a path the real flow can take).
-- The review panel, More menu and Pause menu take 8–12 s to appear the first time on the emulator (the idle emulator runs at 2–4 fps).
-- The demo video has an uneven frame rate (about 16 fps) — an emulator limit, not the app.
-
-Not yet verified on a headset: alarm direction, controller / hand sweep feel, real walking routes and anchor drift, ceiling detection in a real home, permission prompts, and the "step away from the exit first" check.
+v0.1.2 is installed on a headset; a full drill with a person wearing it (alarm direction, sweep feel, anchor drift while walking) is not verified yet.
 
 ---
 
